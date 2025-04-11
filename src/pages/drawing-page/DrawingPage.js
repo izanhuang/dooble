@@ -1,8 +1,8 @@
 import React from "react";
 import Canvas from "../../components/canvas/Canvas";
 
-function Drawing() {
+function DrawingPage() {
   return <Canvas />;
 }
 
-export default Drawing;
+export default DrawingPage;

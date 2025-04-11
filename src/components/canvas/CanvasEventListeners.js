@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { drawGridLines } from "./grid";
+import { drawGridLines } from "../../helpers/grid";
 
 function CanvasEventListeners() {
   const [canvas, setCanvas] = useState(null);

@@ -1,11 +1,11 @@
-import CanvasEventListeners from "../../helpers/listeners";
+import CanvasEventListeners from "./CanvasEventListeners";
 
 function Canvas() {
   return (
-    <div>
+    <>
       <CanvasEventListeners />
       <canvas id="canvas" width="500" height="500"></canvas>;
-    </div>
+    </>
   );
 }
 
