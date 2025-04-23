@@ -5,7 +5,7 @@ import { drawGridLines } from "../../helpers/grid";
 function Canvas() {
   const canvasRef = useRef(null);
   const gridCanvasRef = useRef(null);
-  const [showGrid, setShowGrid] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -84,6 +84,7 @@ function Canvas() {
           height: "100%",
           display: "block",
           zIndex: 2,
+          backgroundColor: showGrid ? "transparent" : "#f8f8f8",
         }}
       />
     </>

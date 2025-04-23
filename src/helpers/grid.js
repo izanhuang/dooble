@@ -5,12 +5,12 @@ function drawGridLines(context) {
   const gridSize = 20; // Size of each grid cell
 
   // Fill background with light gray
-  context.current.fillStyle = "#f5f5f5";
+  context.current.fillStyle = "#e0e0e0";
   context.current.fillRect(0, 0, width, height);
 
   context.current.beginPath();
   context.current.lineWidth = 1;
-  context.current.strokeStyle = "#e0e0e0"; // Light gray grid lines
+  context.current.strokeStyle = "#f5f5f5"; // Light gray grid lines
   context.current.fillStyle = "transparent";
 
   // Draw vertical lines
