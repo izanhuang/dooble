@@ -81,12 +81,16 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
       context.current.lineCap = "round";
       context.current.lineJoin = "round";
 
-      if (!isEraser) {
+      if (isEraser) {
+        // Use destination-out to properly erase
+        context.current.globalCompositeOperation = "destination-out";
+        context.current.strokeStyle = "rgba(0, 0, 0, 1)"; // Any color works since we're using destination-out
+      } else {
+        context.current.globalCompositeOperation = "source-over";
         context.current.strokeStyle = brushColor;
 
         switch (brushType) {
           case "pencil":
-            context.current.globalCompositeOperation = "source-over";
             context.current.lineWidth = Math.max(1, brushWidth * 0.35);
             break;
           case "marker":
@@ -98,13 +102,9 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
             break;
           case "pen":
           default:
-            context.current.globalCompositeOperation = "source-over";
             context.current.lineWidth = brushWidth;
             break;
         }
-      } else {
-        context.current.strokeStyle = "#f8f8f8";
-        context.current.globalCompositeOperation = "source-over";
       }
     }
   };
