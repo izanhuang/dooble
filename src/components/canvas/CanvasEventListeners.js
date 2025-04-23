@@ -19,6 +19,10 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   const canvasHistory = useRef(new CanvasHistory());
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   // Brush size presets
   const brushSizePresets = {
@@ -130,6 +134,175 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     e.dataTransfer.dropEffect = "copy";
   };
 
+  // Handle image paste
+  const handlePaste = (e) => {
+    e.preventDefault();
+    if (!context.current) return;
+
+    // Check if there are any files in the clipboard
+    if (e.clipboardData.files.length > 0) {
+      const file = e.clipboardData.files[0];
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvasWidth = canvasRef.current.width;
+            const canvasHeight = canvasRef.current.height;
+
+            // Calculate scaling factor to fit the image within the canvas
+            const scale = Math.min(
+              canvasWidth / img.width,
+              canvasHeight / img.height,
+              1 // Don't scale up if image is smaller than canvas
+            );
+
+            // Calculate new dimensions
+            const newWidth = img.width * scale;
+            const newHeight = img.height * scale;
+
+            // Calculate position to center the scaled image
+            const x = (canvasWidth - newWidth) / 2;
+            const y = (canvasHeight - newHeight) / 2;
+
+            // Draw the scaled image
+            context.current.drawImage(img, x, y, newWidth, newHeight);
+            saveCanvasState();
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  };
+
+  // Handle image selection
+  const handleImageSelect = (x, y) => {
+    if (!isSelectMode) return;
+
+    // If clicking on the currently selected image, do nothing
+    if (
+      selectedImage &&
+      x >= selectedImage.x &&
+      x <= selectedImage.x + selectedImage.width &&
+      y >= selectedImage.y &&
+      y <= selectedImage.y + selectedImage.height
+    ) {
+      return;
+    }
+
+    // Check if click is on an image
+    const imageData = context.current.getImageData(x, y, 1, 1).data;
+    if (imageData[3] > 0) {
+      // If pixel is not transparent
+      // Get the image dimensions by scanning the canvas
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+
+      // Scan horizontally
+      for (let i = x; i >= 0; i--) {
+        const pixel = context.current.getImageData(i, y, 1, 1).data;
+        if (pixel[3] === 0) break;
+        minX = i;
+      }
+      for (let i = x; i < canvasRef.current.width; i++) {
+        const pixel = context.current.getImageData(i, y, 1, 1).data;
+        if (pixel[3] === 0) break;
+        maxX = i;
+      }
+
+      // Scan vertically
+      for (let i = y; i >= 0; i--) {
+        const pixel = context.current.getImageData(x, i, 1, 1).data;
+        if (pixel[3] === 0) break;
+        minY = i;
+      }
+      for (let i = y; i < canvasRef.current.height; i++) {
+        const pixel = context.current.getImageData(x, i, 1, 1).data;
+        if (pixel[3] === 0) break;
+        maxY = i;
+      }
+
+      // Clear any existing selection
+      setSelectedImage(null);
+
+      // Set new selection after a small delay to ensure the previous selection is cleared
+      setTimeout(() => {
+        setSelectedImage({
+          x: minX,
+          y: minY,
+          width: maxX - minX + 1,
+          height: maxY - minY + 1,
+        });
+      }, 0);
+    } else {
+      // Only deselect if clicking outside the current selection
+      if (
+        selectedImage &&
+        (x < selectedImage.x ||
+          x > selectedImage.x + selectedImage.width ||
+          y < selectedImage.y ||
+          y > selectedImage.y + selectedImage.height)
+      ) {
+        setSelectedImage(null);
+      }
+    }
+  };
+
+  // Handle image drag start
+  const handleImageDragStart = (e) => {
+    if (!isSelectMode || !selectedImage) return;
+    setIsDraggingImage(true);
+    setDragStart({ x: e.offsetX, y: e.offsetY });
+  };
+
+  // Handle image drag
+  const handleImageDrag = (e) => {
+    if (!isSelectMode || !selectedImage || !isDraggingImage) return;
+
+    const dx = e.offsetX - dragStart.x;
+    const dy = e.offsetY - dragStart.y;
+
+    // Update image position
+    setSelectedImage((prev) => ({
+      ...prev,
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+
+    setDragStart({ x: e.offsetX, y: e.offsetY });
+  };
+
+  // Handle image drag end
+  const handleImageDragEnd = () => {
+    setIsDraggingImage(false);
+    saveCanvasState();
+  };
+
+  // Draw selection indicator
+  const drawSelectionIndicator = () => {
+    if (!selectedImage || !context.current) return;
+
+    // Save the current canvas state
+    context.current.save();
+
+    // Draw selection rectangle
+    context.current.strokeStyle = "#2196F3";
+    context.current.lineWidth = 2;
+    context.current.setLineDash([5, 5]);
+    context.current.strokeRect(
+      selectedImage.x - 2,
+      selectedImage.y - 2,
+      selectedImage.width + 4,
+      selectedImage.height + 4
+    );
+
+    // Restore the canvas state
+    context.current.restore();
+  };
+
   // Set up canvas and event listeners
   useEffect(() => {
     if (canvasRef.current && gridCanvasRef.current) {
@@ -137,9 +310,36 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
       gridContext.current = gridCanvasRef.current.getContext("2d");
       setupContext();
 
-      if (showGrid && gridContext.current) {
-        drawGridLines(gridContext);
-      }
+      // Set canvas dimensions to match window size
+      const updateCanvasSize = () => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Store current canvas content
+        const currentContent = canvasRef.current.toDataURL();
+
+        // Update canvas dimensions
+        canvasRef.current.width = width;
+        canvasRef.current.height = height;
+        gridCanvasRef.current.width = width;
+        gridCanvasRef.current.height = height;
+
+        // Restore canvas content
+        const img = new Image();
+        img.onload = () => {
+          context.current.drawImage(img, 0, 0);
+          if (showGrid && gridContext.current) {
+            drawGridLines(gridContext);
+          }
+        };
+        img.src = currentContent;
+      };
+
+      // Initial size setup
+      updateCanvasSize();
+
+      // Add resize listener
+      window.addEventListener("resize", updateCanvasSize);
 
       const canvas = canvasRef.current;
       canvas.addEventListener("mousedown", handleCanvasMouseDown);
@@ -147,13 +347,16 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
       canvas.addEventListener("mouseup", handleCanvasMouseUp);
       canvas.addEventListener("drop", handleDrop);
       canvas.addEventListener("dragover", handleDragOver);
+      document.addEventListener("paste", handlePaste);
 
       return () => {
+        window.removeEventListener("resize", updateCanvasSize);
         canvas.removeEventListener("mousedown", handleCanvasMouseDown);
         canvas.removeEventListener("mousemove", handleCanvasMouseMove);
         canvas.removeEventListener("mouseup", handleCanvasMouseUp);
         canvas.removeEventListener("drop", handleDrop);
         canvas.removeEventListener("dragover", handleDragOver);
+        document.removeEventListener("paste", handlePaste);
       };
     }
   }, [canvasRef, gridCanvasRef, isEraser, brushWidth, brushColor, brushType]);
@@ -174,7 +377,7 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   }, [showGrid]);
 
   useEffect(() => {
-    if (isMouseDown && context.current) {
+    if (isMouseDown && context.current && !isSelectMode) {
       setupContext();
 
       if (brushType === "pencil" && lastPoint.current) {
@@ -211,9 +414,20 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     }
   }, [canvasRef]);
 
+  // Redraw canvas with selection indicator
+  useEffect(() => {
+    if (context.current) {
+      // Only redraw the selection indicator, not the entire canvas
+      drawSelectionIndicator();
+    }
+  }, [selectedImage, isSelectMode]);
+
   function handleCanvasMouseDown(event) {
     event.preventDefault();
-    if (context.current) {
+    if (isSelectMode) {
+      handleImageSelect(event.offsetX, event.offsetY);
+      handleImageDragStart(event);
+    } else if (context.current) {
       setIsMouseDown(true);
       setupContext();
       context.current.beginPath();
@@ -224,14 +438,26 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
 
   function handleCanvasMouseMove(event) {
     event.preventDefault();
-    setCurrentPosition([event.offsetX, event.offsetY]);
+    if (isSelectMode) {
+      handleImageDrag(event);
+      // Redraw only the selection indicator during drag
+      drawSelectionIndicator();
+    } else {
+      setCurrentPosition([event.offsetX, event.offsetY]);
+    }
   }
 
   function handleCanvasMouseUp(event) {
     event.preventDefault();
-    setIsMouseDown(false);
-    lastPoint.current = null;
-    saveCanvasState();
+    if (isSelectMode) {
+      handleImageDragEnd();
+      // Final redraw of selection indicator
+      drawSelectionIndicator();
+    } else {
+      setIsMouseDown(false);
+      lastPoint.current = null;
+      saveCanvasState();
+    }
   }
 
   // Save canvas state
@@ -259,142 +485,244 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     }
   };
 
+  // Handle select mode toggle
+  const handleSelectModeToggle = () => {
+    // Store current canvas content
+    const currentContent = canvasRef.current.toDataURL();
+
+    // Toggle select mode
+    setIsSelectMode(!isSelectMode);
+
+    // Restore canvas content after mode change
+    const img = new Image();
+    img.onload = () => {
+      context.current.drawImage(img, 0, 0);
+    };
+    img.src = currentContent;
+
+    // Reset other modes when entering select mode
+    if (!isSelectMode) {
+      setIsEraser(false);
+    }
+  };
+
+  // Redraw the canvas content
+  const redrawCanvas = () => {
+    if (!context.current) return;
+
+    // Store current content
+    const currentContent = canvasRef.current.toDataURL();
+
+    // Clear the canvas
+    context.current.clearRect(
+      0,
+      0,
+      canvasRef.current.width,
+      canvasRef.current.height
+    );
+
+    // Restore content
+    const img = new Image();
+    img.onload = () => {
+      context.current.drawImage(img, 0, 0);
+    };
+    img.src = currentContent;
+  };
+
   return (
     <div
       style={{
         position: "fixed",
         top: 20,
         left: 20,
+        right: 20,
         zIndex: 1000,
         display: "flex",
+        flexWrap: "wrap",
         gap: "10px",
         alignItems: "center",
+        backgroundColor: "white",
+        padding: "10px",
+        borderRadius: "8px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+        maxWidth: "100%",
       }}
     >
-      <button
-        onClick={() => setIsEraser(!isEraser)}
-        style={{
-          padding: "8px 16px",
-          backgroundColor: isEraser ? "#f44336" : "#2196F3",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
-      >
-        {isEraser ? "Switch to Pen" : "Switch to Eraser"}
-      </button>
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          flexWrap: "wrap",
           gap: "10px",
-          backgroundColor: "white",
-          padding: "8px 16px",
-          borderRadius: "4px",
+          alignItems: "center",
+          flex: "1",
+          minWidth: "200px",
         }}
       >
-        <span style={{ minWidth: "40px" }}>{brushWidth}px</span>
-        <input
-          type="range"
-          min="1"
-          max="50"
-          value={brushWidth}
-          onChange={(e) => setBrushWidth(parseInt(e.target.value))}
-          style={{ width: "100px" }}
+        <button
+          onClick={handleSelectModeToggle}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: isSelectMode ? "#2196F3" : "#f5f5f5",
+            color: isSelectMode ? "white" : "black",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {isSelectMode ? "Exit Select Mode" : "Select Mode"}
+        </button>
+        <button
+          onClick={() => setIsEraser(!isEraser)}
+          disabled={isSelectMode}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: isEraser ? "#f44336" : "#2196F3",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: isSelectMode ? "not-allowed" : "pointer",
+            whiteSpace: "nowrap",
+            opacity: isSelectMode ? 0.5 : 1,
+          }}
+        >
+          {isEraser ? "Switch to Pen" : "Switch to Eraser"}
+        </button>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            backgroundColor: "white",
+            padding: "8px 16px",
+            borderRadius: "4px",
+            minWidth: "150px",
+            opacity: isSelectMode ? 0.5 : 1,
+          }}
+        >
+          <span style={{ minWidth: "40px" }}>{brushWidth}px</span>
+          <input
+            type="range"
+            min="1"
+            max="50"
+            value={brushWidth}
+            onChange={(e) => setBrushWidth(parseInt(e.target.value))}
+            style={{ width: "100px" }}
+            disabled={isSelectMode}
+          />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            backgroundColor: "white",
+            padding: "8px 16px",
+            borderRadius: "4px",
+            flexWrap: "wrap",
+            opacity: isSelectMode ? 0.5 : 1,
+          }}
+        >
+          <button
+            onClick={() => handleBrushTypeChange("pencil")}
+            disabled={isSelectMode}
+            style={{
+              padding: "8px",
+              backgroundColor: brushType === "pencil" ? "#2196F3" : "#f5f5f5",
+              color: brushType === "pencil" ? "white" : "black",
+              border: "none",
+              borderRadius: "4px",
+              cursor: isSelectMode ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Pencil
+          </button>
+          <button
+            onClick={() => handleBrushTypeChange("pen")}
+            disabled={isSelectMode}
+            style={{
+              padding: "8px",
+              backgroundColor: brushType === "pen" ? "#2196F3" : "#f5f5f5",
+              color: brushType === "pen" ? "white" : "black",
+              border: "none",
+              borderRadius: "4px",
+              cursor: isSelectMode ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Pen
+          </button>
+          <button
+            onClick={() => handleBrushTypeChange("marker")}
+            disabled={isSelectMode}
+            style={{
+              padding: "8px",
+              backgroundColor: brushType === "marker" ? "#2196F3" : "#f5f5f5",
+              color: brushType === "marker" ? "white" : "black",
+              border: "none",
+              borderRadius: "4px",
+              cursor: isSelectMode ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Marker
+          </button>
+        </div>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <ColorPicker
+          currentColor={brushColor}
+          onColorChange={handleColorChange}
+          onColorUsed={colorUsed}
+          disabled={isSelectMode}
         />
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          backgroundColor: "white",
-          padding: "8px 16px",
-          borderRadius: "4px",
-        }}
-      >
-        <button
-          onClick={() => handleBrushTypeChange("pencil")}
+        <div
           style={{
-            padding: "8px",
-            backgroundColor: brushType === "pencil" ? "#2196F3" : "#f5f5f5",
-            color: brushType === "pencil" ? "white" : "black",
-            border: "none",
+            display: "flex",
+            gap: "8px",
+            backgroundColor: "white",
+            padding: "8px 16px",
             borderRadius: "4px",
-            cursor: "pointer",
           }}
         >
-          Pencil
-        </button>
-        <button
-          onClick={() => handleBrushTypeChange("pen")}
-          style={{
-            padding: "8px",
-            backgroundColor: brushType === "pen" ? "#2196F3" : "#f5f5f5",
-            color: brushType === "pen" ? "white" : "black",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Pen
-        </button>
-        <button
-          onClick={() => handleBrushTypeChange("marker")}
-          style={{
-            padding: "8px",
-            backgroundColor: brushType === "marker" ? "#2196F3" : "#f5f5f5",
-            color: brushType === "marker" ? "white" : "black",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Marker
-        </button>
-      </div>
-      <ColorPicker
-        currentColor={brushColor}
-        onColorChange={handleColorChange}
-        onColorUsed={colorUsed}
-      />
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          backgroundColor: "white",
-          padding: "8px 16px",
-          borderRadius: "4px",
-        }}
-      >
-        <button
-          onClick={handleUndo}
-          disabled={!canUndo}
-          style={{
-            padding: "8px",
-            backgroundColor: canUndo ? "#2196F3" : "#f5f5f5",
-            color: canUndo ? "white" : "#999",
-            border: "none",
-            borderRadius: "4px",
-            cursor: canUndo ? "pointer" : "not-allowed",
-          }}
-        >
-          Undo
-        </button>
-        <button
-          onClick={handleRedo}
-          disabled={!canRedo}
-          style={{
-            padding: "8px",
-            backgroundColor: canRedo ? "#2196F3" : "#f5f5f5",
-            color: canRedo ? "white" : "#999",
-            border: "none",
-            borderRadius: "4px",
-            cursor: canRedo ? "pointer" : "not-allowed",
-          }}
-        >
-          Redo
-        </button>
+          <button
+            onClick={handleUndo}
+            disabled={!canUndo}
+            style={{
+              padding: "8px",
+              backgroundColor: canUndo ? "#2196F3" : "#f5f5f5",
+              color: canUndo ? "white" : "#999",
+              border: "none",
+              borderRadius: "4px",
+              cursor: canUndo ? "pointer" : "not-allowed",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Undo
+          </button>
+          <button
+            onClick={handleRedo}
+            disabled={!canRedo}
+            style={{
+              padding: "8px",
+              backgroundColor: canRedo ? "#2196F3" : "#f5f5f5",
+              color: canRedo ? "white" : "#999",
+              border: "none",
+              borderRadius: "4px",
+              cursor: canRedo ? "pointer" : "not-allowed",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Redo
+          </button>
+        </div>
       </div>
     </div>
   );
