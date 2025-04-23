@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { drawGridLines } from "../../helpers/grid";
 import ColorPicker from "./ColorPicker";
+import { CanvasHistory } from "./canvasHistory";
 
 function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   const [isMouseDown, setIsMouseDown] = useState(null);
@@ -14,6 +15,9 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   const context = useRef();
   const gridContext = useRef();
   const lastPoint = useRef(null);
+  const canvasHistory = useRef(new CanvasHistory());
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   // Brush size presets
   const brushSizePresets = {
@@ -171,6 +175,15 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     }
   }, [currentPosition, isMouseDown]);
 
+  // Initialize canvas history
+  useEffect(() => {
+    if (canvasRef.current) {
+      canvasHistory.current.initialize(canvasRef.current);
+      setCanUndo(canvasHistory.current.canUndo());
+      setCanRedo(canvasHistory.current.canRedo());
+    }
+  }, [canvasRef]);
+
   function handleCanvasMouseDown(event) {
     event.preventDefault();
     if (context.current) {
@@ -191,7 +204,33 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     event.preventDefault();
     setIsMouseDown(false);
     lastPoint.current = null;
+    saveCanvasState();
   }
+
+  // Save canvas state
+  const saveCanvasState = () => {
+    if (canvasRef.current) {
+      canvasHistory.current.saveState(canvasRef.current);
+      setCanUndo(canvasHistory.current.canUndo());
+      setCanRedo(canvasHistory.current.canRedo());
+    }
+  };
+
+  // Handle undo
+  const handleUndo = () => {
+    if (canvasRef.current && canvasHistory.current.undo(canvasRef.current)) {
+      setCanUndo(canvasHistory.current.canUndo());
+      setCanRedo(canvasHistory.current.canRedo());
+    }
+  };
+
+  // Handle redo
+  const handleRedo = () => {
+    if (canvasRef.current && canvasHistory.current.redo(canvasRef.current)) {
+      setCanUndo(canvasHistory.current.canUndo());
+      setCanRedo(canvasHistory.current.canRedo());
+    }
+  };
 
   return (
     <div
@@ -292,6 +331,44 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
         onColorChange={handleColorChange}
         onColorUsed={colorUsed}
       />
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          backgroundColor: "white",
+          padding: "8px 16px",
+          borderRadius: "4px",
+        }}
+      >
+        <button
+          onClick={handleUndo}
+          disabled={!canUndo}
+          style={{
+            padding: "8px",
+            backgroundColor: canUndo ? "#2196F3" : "#f5f5f5",
+            color: canUndo ? "white" : "#999",
+            border: "none",
+            borderRadius: "4px",
+            cursor: canUndo ? "pointer" : "not-allowed",
+          }}
+        >
+          Undo
+        </button>
+        <button
+          onClick={handleRedo}
+          disabled={!canRedo}
+          style={{
+            padding: "8px",
+            backgroundColor: canRedo ? "#2196F3" : "#f5f5f5",
+            color: canRedo ? "white" : "#999",
+            border: "none",
+            borderRadius: "4px",
+            cursor: canRedo ? "pointer" : "not-allowed",
+          }}
+        >
+          Redo
+        </button>
+      </div>
     </div>
   );
 }
