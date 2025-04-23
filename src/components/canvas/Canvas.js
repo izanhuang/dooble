@@ -7,6 +7,14 @@ function Canvas() {
   const gridCanvasRef = useRef(null);
   const [showGrid, setShowGrid] = useState(false);
 
+  const handleExport = () => {
+    const canvas = canvasRef.current;
+    const link = document.createElement("a");
+    link.download = "drawing.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const gridCanvas = gridCanvasRef.current;
@@ -44,7 +52,16 @@ function Canvas() {
         canvasRef={canvasRef}
         gridCanvasRef={gridCanvasRef}
       />
-      <div style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}>
+      <div
+        style={{
+          position: "fixed",
+          top: 20,
+          right: 20,
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px",
+        }}
+      >
         <button
           onClick={() => setShowGrid(!showGrid)}
           style={{
@@ -57,6 +74,19 @@ function Canvas() {
           }}
         >
           {showGrid ? "Hide Grid" : "Show Grid"}
+        </button>
+        <button
+          onClick={handleExport}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#2196F3",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Export Drawing
         </button>
       </div>
       <canvas

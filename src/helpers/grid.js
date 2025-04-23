@@ -4,29 +4,21 @@ function drawGridLines(context) {
   const height = canvas.height;
   const gridSize = 20; // Size of each grid cell
 
-  // Fill background with light gray
-  context.current.fillStyle = "#e0e0e0";
+  // Fill background with white
+  context.current.fillStyle = "#ffffff";
   context.current.fillRect(0, 0, width, height);
 
-  context.current.beginPath();
-  context.current.lineWidth = 1;
-  context.current.strokeStyle = "#f5f5f5"; // Light gray grid lines
-  context.current.fillStyle = "transparent";
+  // Draw checkerboard pattern
+  context.current.fillStyle = "#f5f5f5";
 
-  // Draw vertical lines
-  for (let x = 0; x <= width; x += gridSize) {
-    context.current.moveTo(x, 0);
-    context.current.lineTo(x, height);
+  for (let y = 0; y < height; y += gridSize) {
+    for (let x = 0; x < width; x += gridSize) {
+      // Alternate between white and gray
+      if ((x / gridSize + y / gridSize) % 2 === 0) {
+        context.current.fillRect(x, y, gridSize, gridSize);
+      }
+    }
   }
-
-  // Draw horizontal lines
-  for (let y = 0; y <= height; y += gridSize) {
-    context.current.moveTo(0, y);
-    context.current.lineTo(width, y);
-  }
-
-  context.current.stroke();
-  context.current.closePath();
 }
 
 export { drawGridLines };
