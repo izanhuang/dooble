@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { floodFill } from "./floodFill";
 
 function ColorPicker({ currentColor, onColorChange, onColorUsed }) {
   const [showPicker, setShowPicker] = useState(false);
@@ -9,6 +10,7 @@ function ColorPicker({ currentColor, onColorChange, onColorUsed }) {
   const [rgb, setRgb] = useState({ r: 255, g: 255, b: 255 });
   const [pendingColor, setPendingColor] = useState(null);
   const [pendingOpacity, setPendingOpacity] = useState(null);
+  const colorPreviewRef = useRef(null);
 
   // Convert any color format to hex
   const toHex = (color) => {
@@ -167,6 +169,15 @@ function ColorPicker({ currentColor, onColorChange, onColorUsed }) {
     onColorChange(newColor, opacity);
   };
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData("text/plain", color);
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
+  const handleDragEnd = (e) => {
+    e.preventDefault();
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <button
@@ -186,13 +197,18 @@ function ColorPicker({ currentColor, onColorChange, onColorUsed }) {
         }}
       >
         <div
+          ref={colorPreviewRef}
+          draggable
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
           style={{
             width: "20px",
             height: "20px",
-            backgroundColor: toHex(currentColor),
+            backgroundColor: currentColor,
             border: "2px solid white",
             borderRadius: "4px",
             opacity: opacity,
+            cursor: "grab",
           }}
         />
         <span>Color</span>

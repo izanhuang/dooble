@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { drawGridLines } from "../../helpers/grid";
 import ColorPicker from "./ColorPicker";
 import { CanvasHistory } from "./canvasHistory";
+import { floodFill } from "./floodFill";
 
 function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   const [isMouseDown, setIsMouseDown] = useState(null);
@@ -108,6 +109,28 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     }
   };
 
+  // Handle color drop
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (context.current) {
+      const draggedColor = e.dataTransfer.getData("text/plain");
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Use the dragged color for flood fill
+      floodFill(context.current, x, y, draggedColor);
+      saveCanvasState();
+    }
+  };
+
+  // Handle drag over
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  // Set up canvas and event listeners
   useEffect(() => {
     if (canvasRef.current && gridCanvasRef.current) {
       context.current = canvasRef.current.getContext("2d");
@@ -122,11 +145,15 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
       canvas.addEventListener("mousedown", handleCanvasMouseDown);
       canvas.addEventListener("mousemove", handleCanvasMouseMove);
       canvas.addEventListener("mouseup", handleCanvasMouseUp);
+      canvas.addEventListener("drop", handleDrop);
+      canvas.addEventListener("dragover", handleDragOver);
 
       return () => {
         canvas.removeEventListener("mousedown", handleCanvasMouseDown);
         canvas.removeEventListener("mousemove", handleCanvasMouseMove);
         canvas.removeEventListener("mouseup", handleCanvasMouseUp);
+        canvas.removeEventListener("drop", handleDrop);
+        canvas.removeEventListener("dragover", handleDragOver);
       };
     }
   }, [canvasRef, gridCanvasRef, isEraser, brushWidth, brushColor, brushType]);
