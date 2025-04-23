@@ -1,31 +1,56 @@
 import { useEffect, useRef, useState } from "react";
 import { drawGridLines } from "../../helpers/grid";
 
-function CanvasEventListeners() {
-  const [canvas, setCanvas] = useState(null);
+function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   const [isMouseDown, setIsMouseDown] = useState(null);
   const [currentPosition, setCurrentPosition] = useState([-1, -1]);
   const context = useRef();
+  const gridContext = useRef();
 
   useEffect(() => {
-    if (!canvas) {
-      setCanvas(document.getElementById("canvas"));
-    } else {
-      context.current = canvas.getContext("2d");
+    if (canvasRef.current && gridCanvasRef.current) {
+      context.current = canvasRef.current.getContext("2d");
+      gridContext.current = gridCanvasRef.current.getContext("2d");
 
-      // canvas background
-      drawGridLines(context);
-
-      // brush size
+      // Set up drawing context
       context.current.lineWidth = 10;
-      // brush color
       context.current.strokeStyle = "white";
 
+      // Draw initial grid
+      if (showGrid) {
+        drawGridLines(gridContext);
+      }
+
+      // Add event listeners to the drawing canvas
+      const canvas = canvasRef.current;
       canvas.addEventListener("mousedown", handleCanvasMouseDown);
       canvas.addEventListener("mousemove", handleCanvasMouseMove);
       canvas.addEventListener("mouseup", handleCanvasMouseUp);
+
+      return () => {
+        canvas.removeEventListener("mousedown", handleCanvasMouseDown);
+        canvas.removeEventListener("mousemove", handleCanvasMouseMove);
+        canvas.removeEventListener("mouseup", handleCanvasMouseUp);
+      };
     }
-  }, [canvas]);
+  }, [canvasRef, gridCanvasRef]);
+
+  useEffect(() => {
+    if (gridCanvasRef.current) {
+      // Clear grid canvas
+      gridContext.current.clearRect(
+        0,
+        0,
+        gridCanvasRef.current.width,
+        gridCanvasRef.current.height
+      );
+
+      // Redraw grid if enabled
+      if (showGrid) {
+        drawGridLines(gridContext);
+      }
+    }
+  }, [showGrid]);
 
   useEffect(() => {
     if (isMouseDown) {
@@ -50,6 +75,8 @@ function CanvasEventListeners() {
     event.preventDefault();
     setIsMouseDown(false);
   }
+
+  return null; // We don't need to render anything here as the canvases are rendered in the Canvas component
 }
 
 export default CanvasEventListeners;

@@ -1,20 +1,31 @@
 function drawGridLines(context) {
+  const canvas = context.current.canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+  const gridSize = 20; // Size of each grid cell
+
+  // Fill background with light gray
+  context.current.fillStyle = "#f5f5f5";
+  context.current.fillRect(0, 0, width, height);
+
   context.current.beginPath();
   context.current.lineWidth = 1;
-  context.current.strokeStyle = "white";
+  context.current.strokeStyle = "#e0e0e0"; // Light gray grid lines
   context.current.fillStyle = "transparent";
 
-  for (let i = 0; i <= 500; i += 10) {
-    // vertical
-    context.current.moveTo(i, 0); // [[0,0], [100,0], [200,0], ...]
-    context.current.lineTo(i, 500); // [[0,500], [100,500], [200,500], ...]
-
-    // horizontal
-    context.current.moveTo(0, i); // [[0,0], [0,100], [0,200], ...]
-    context.current.lineTo(500, i); // [[500,0], [500,100], [500,200], ...]
-
-    context.current.stroke();
+  // Draw vertical lines
+  for (let x = 0; x <= width; x += gridSize) {
+    context.current.moveTo(x, 0);
+    context.current.lineTo(x, height);
   }
+
+  // Draw horizontal lines
+  for (let y = 0; y <= height; y += gridSize) {
+    context.current.moveTo(0, y);
+    context.current.lineTo(width, y);
+  }
+
+  context.current.stroke();
   context.current.closePath();
 }
 
