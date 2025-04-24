@@ -491,6 +491,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
       canvas.addEventListener("dragover", handleDragOver);
       document.addEventListener("paste", handlePaste);
 
+      // Add touch event listeners
+      canvas.addEventListener("touchstart", handleCanvasTouchStart);
+      canvas.addEventListener("touchmove", handleCanvasTouchMove);
+      canvas.addEventListener("touchend", handleCanvasTouchEnd);
+
       return () => {
         window.removeEventListener("resize", updateCanvasSize);
         canvas.removeEventListener("mousedown", handleCanvasMouseDown);
@@ -499,6 +504,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
         canvas.removeEventListener("drop", handleDrop);
         canvas.removeEventListener("dragover", handleDragOver);
         document.removeEventListener("paste", handlePaste);
+
+        // Remove touch event listeners
+        canvas.removeEventListener("touchstart", handleCanvasTouchStart);
+        canvas.removeEventListener("touchmove", handleCanvasTouchMove);
+        canvas.removeEventListener("touchend", handleCanvasTouchEnd);
       };
     }
   }, [canvasRef, gridCanvasRef, isEraser, brushWidth, brushColor, brushType]);
@@ -740,6 +750,123 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     };
     img.src = currentContent;
   };
+
+  // Touch event handlers
+  function handleCanvasTouchStart(event) {
+    event.preventDefault();
+    const touch = event.touches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    if (isSelectMode) {
+      // Check if touching a resize handle
+      if (selectedImage) {
+        const handleSize = 8;
+        const handles = [
+          {
+            x: selectedImage.x - handleSize / 2,
+            y: selectedImage.y - handleSize / 2,
+            type: "nw",
+          },
+          {
+            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
+            y: selectedImage.y - handleSize / 2,
+            type: "n",
+          },
+          {
+            x: selectedImage.x + selectedImage.width - handleSize / 2,
+            y: selectedImage.y - handleSize / 2,
+            type: "ne",
+          },
+          {
+            x: selectedImage.x - handleSize / 2,
+            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
+            type: "w",
+          },
+          {
+            x: selectedImage.x + selectedImage.width - handleSize / 2,
+            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
+            type: "e",
+          },
+          {
+            x: selectedImage.x - handleSize / 2,
+            y: selectedImage.y + selectedImage.height - handleSize / 2,
+            type: "sw",
+          },
+          {
+            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
+            y: selectedImage.y + selectedImage.height - handleSize / 2,
+            type: "s",
+          },
+          {
+            x: selectedImage.x + selectedImage.width - handleSize / 2,
+            y: selectedImage.y + selectedImage.height - handleSize / 2,
+            type: "se",
+          },
+        ];
+
+        const clickedHandle = handles.find(
+          (handle) =>
+            x >= handle.x &&
+            x <= handle.x + handleSize &&
+            y >= handle.y &&
+            y <= handle.y + handleSize
+        );
+
+        if (clickedHandle) {
+          handleResizeStart({ offsetX: x, offsetY: y }, clickedHandle.type);
+          return;
+        }
+      }
+
+      handleImageSelect(x, y);
+      handleImageDragStart({ offsetX: x, offsetY: y });
+    } else if (context.current) {
+      setIsMouseDown(true);
+      setupContext();
+      context.current.beginPath();
+      context.current.moveTo(x, y);
+      lastPoint.current = { x, y };
+      setCurrentPosition([x, y]); // Set initial position
+    }
+  }
+
+  function handleCanvasTouchMove(event) {
+    event.preventDefault();
+    const touch = event.touches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    if (isSelectMode) {
+      if (isResizing) {
+        handleResize({ offsetX: x, offsetY: y });
+      } else {
+        handleImageDrag({ offsetX: x, offsetY: y });
+      }
+      drawSelectionIndicator();
+    } else {
+      setCurrentPosition([x, y]);
+    }
+  }
+
+  function handleCanvasTouchEnd(event) {
+    event.preventDefault();
+
+    if (isSelectMode) {
+      if (isResizing) {
+        handleResizeEnd();
+      } else {
+        handleImageDragEnd();
+      }
+      drawSelectionIndicator();
+    } else {
+      setIsMouseDown(false);
+      lastPoint.current = null;
+      saveCanvasState();
+    }
+  }
 
   return (
     <div
