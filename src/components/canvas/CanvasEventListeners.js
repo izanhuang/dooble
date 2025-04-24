@@ -48,6 +48,15 @@ function useCanvasEventListeners({
   const handleBrushTypeChange = (type) => {
     setBrushType(type);
     setBrushWidth(brushSizePresets[type]);
+    setIsEraser(false); // Deselect eraser when selecting a brush type
+  };
+
+  // Handle eraser toggle
+  const handleEraserToggle = () => {
+    setIsEraser(!isEraser);
+    if (!isEraser) {
+      setBrushType(null); // Deselect brush type when selecting eraser
+    }
   };
 
   // Convert hex color to RGBA
@@ -813,7 +822,7 @@ function useCanvasEventListeners({
     canRedo,
     showGrid,
     handleSelectModeToggle,
-    handleEraserToggle: () => setIsEraser(!isEraser),
+    handleEraserToggle,
     handleBrushWidthChange: (e) => setBrushWidth(parseInt(e.target.value)),
     handleBrushTypeChange,
     handleColorChange,
