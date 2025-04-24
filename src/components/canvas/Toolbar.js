@@ -1,4 +1,5 @@
 import React from "react";
+import IconButton from "../button/IconButton";
 
 const Toolbar = ({
   isSelectMode,
@@ -13,7 +14,6 @@ const Toolbar = ({
   onBrushTypeChange,
   onUndo,
   onRedo,
-  disabled,
 }) => {
   return (
     <div
@@ -26,40 +26,20 @@ const Toolbar = ({
         minWidth: "200px",
       }}
     >
-      <button
+      <IconButton
+        isSelected={isSelectMode}
+        iconSrc="/icons/select.png"
+        iconAlt="Select"
         onClick={onSelectModeToggle}
-        style={{
-          padding: "8px 16px",
-          backgroundColor: isSelectMode ? "#2196F3" : "#f5f5f5",
-          color: isSelectMode ? "white" : "black",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {isSelectMode ? "Exit Select Mode" : "Select Mode"}
-      </button>
-      <button
+        isDisabled={isSelectMode}
+      />
+      <IconButton
+        isSelected={isEraser}
+        iconSrc="/icons/eraser.png"
+        iconAlt="Eraser"
         onClick={onEraserToggle}
-        disabled={isSelectMode}
-        style={{
-          padding: "8px",
-          backgroundColor: isEraser ? "#2196F3" : "#f5f5f5",
-          color: "white",
-          border: "none",
-          borderRadius: "8px",
-          cursor: isSelectMode ? "not-allowed" : "pointer",
-          whiteSpace: "nowrap",
-          opacity: isSelectMode ? 0.5 : 1,
-        }}
-      >
-        <img
-          src="/icons/eraser.png"
-          style={{ width: "24px", height: "24px" }}
-          alt="Eraser"
-        />
-      </button>
+        isDisabled={isSelectMode}
+      />
       <div
         style={{
           display: "flex",
@@ -94,63 +74,27 @@ const Toolbar = ({
           opacity: isSelectMode ? 0.5 : 1,
         }}
       >
-        <button
+        <IconButton
+          isSelected={brushType === "pencil"}
+          iconSrc="/icons/pencil.png"
+          iconAlt="Pencil"
           onClick={() => onBrushTypeChange("pencil")}
-          disabled={isSelectMode}
-          style={{
-            padding: "8px",
-            backgroundColor: brushType === "pencil" ? "#2196F3" : "#f5f5f5",
-            color: brushType === "pencil" ? "white" : "black",
-            border: "none",
-            borderRadius: "8px",
-            cursor: isSelectMode ? "not-allowed" : "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <img
-            src="/icons/pencil.png"
-            style={{ width: "24px", height: "24px" }}
-            alt="Pencil"
-          />
-        </button>
-        <button
+          isDisabled={isSelectMode}
+        />
+        <IconButton
+          isSelected={brushType === "pen"}
+          iconSrc="/icons/pen.png"
+          iconAlt="Pen"
           onClick={() => onBrushTypeChange("pen")}
-          disabled={isSelectMode}
-          style={{
-            padding: "8px",
-            backgroundColor: brushType === "pen" ? "#2196F3" : "#f5f5f5",
-            color: brushType === "pen" ? "white" : "black",
-            border: "none",
-            borderRadius: "8px",
-            cursor: isSelectMode ? "not-allowed" : "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <img
-            src="/icons/pen.png"
-            style={{ width: "24px", height: "24px" }}
-            alt="Pen"
-          />
-        </button>
-        <button
+          isDisabled={isSelectMode}
+        />
+        <IconButton
+          isSelected={brushType === "marker"}
+          iconSrc="/icons/marker.png"
+          iconAlt="Marker"
           onClick={() => onBrushTypeChange("marker")}
-          disabled={isSelectMode}
-          style={{
-            padding: "8px",
-            backgroundColor: brushType === "marker" ? "#2196F3" : "#f5f5f5",
-            color: brushType === "marker" ? "white" : "black",
-            border: "none",
-            borderRadius: "8px",
-            cursor: isSelectMode ? "not-allowed" : "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <img
-            src="/icons/marker.png"
-            style={{ width: "24px", height: "24px" }}
-            alt="Marker"
-          />
-        </button>
+          isDisabled={isSelectMode}
+        />
       </div>
       <div
         style={{
@@ -161,44 +105,20 @@ const Toolbar = ({
           borderRadius: "4px",
         }}
       >
-        <button
+        <IconButton
+          isSelected={false}
+          iconSrc="/icons/undo.png"
+          iconAlt="Undo"
           onClick={onUndo}
-          disabled={!canUndo}
-          style={{
-            padding: "8px",
-            backgroundColor: "#f5f5f5",
-            border: "none",
-            borderRadius: "4px",
-            cursor: canUndo ? "pointer" : "not-allowed",
-            opacity: canUndo ? 1 : 0.15,
-            whiteSpace: "nowrap",
-          }}
-        >
-          <img
-            src="/icons/undo.png"
-            style={{ width: "24px", height: "24px" }}
-            alt="Undo"
-          />
-        </button>
-        <button
+          isDisabled={!canUndo}
+        />
+        <IconButton
+          isSelected={false}
+          iconSrc="/icons/redo.png"
+          iconAlt="Redo"
           onClick={onRedo}
-          disabled={!canRedo}
-          style={{
-            padding: "8px",
-            backgroundColor: "#f5f5f5",
-            border: "none",
-            borderRadius: "4px",
-            cursor: canRedo ? "pointer" : "not-allowed",
-            opacity: canRedo ? 1 : 0.15,
-            whiteSpace: "nowrap",
-          }}
-        >
-          <img
-            src="/icons/redo.png"
-            style={{ width: "24px", height: "24px" }}
-            alt="Redo"
-          />
-        </button>
+          isDisabled={!canRedo}
+        />
       </div>
     </div>
   );
