@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { drawGridLines } from "../../helpers/grid";
-import ColorPicker from "./ColorPicker";
 import { CanvasHistory } from "./canvasHistory";
 import { floodFill } from "./floodFill";
+import {
+  setupDrawingContext,
+  handleTouchStart,
+  handleTouchMove,
+  handleTouchEnd,
+} from "./canvasHelpers";
 
-function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
+function useCanvasEventListeners({
+  showGrid: initialShowGrid,
+  canvasRef,
+  gridCanvasRef,
+}) {
   const [isMouseDown, setIsMouseDown] = useState(null);
   const [currentPosition, setCurrentPosition] = useState([-1, -1]);
   const [isEraser, setIsEraser] = useState(false);
@@ -13,6 +22,7 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   const [brushOpacity, setBrushOpacity] = useState(1);
   const [colorUsed, setColorUsed] = useState(0);
   const [brushType, setBrushType] = useState("pen");
+  const [showGrid, setShowGrid] = useState(initialShowGrid);
   const context = useRef();
   const gridContext = useRef();
   const lastPoint = useRef(null);
@@ -83,37 +93,13 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
 
   // Set up drawing context based on brush type
   const setupContext = () => {
-    if (context.current) {
-      context.current.lineWidth = brushWidth;
-      context.current.lineCap = "round";
-      context.current.lineJoin = "round";
-
-      if (isEraser) {
-        // Use destination-out to properly erase
-        context.current.globalCompositeOperation = "destination-out";
-        context.current.strokeStyle = "rgba(0, 0, 0, 1)"; // Any color works since we're using destination-out
-      } else {
-        context.current.globalCompositeOperation = "source-over";
-        context.current.strokeStyle = brushColor;
-
-        switch (brushType) {
-          case "pencil":
-            context.current.lineWidth = Math.max(1, brushWidth * 0.35);
-            break;
-          case "marker":
-            context.current.globalCompositeOperation = "multiply";
-            context.current.lineWidth = brushWidth * 1.2;
-            // Make marker more transparent
-            const markerColor = brushColor.replace(/[\d.]+\)$/, "0.3)");
-            context.current.strokeStyle = markerColor;
-            break;
-          case "pen":
-          default:
-            context.current.lineWidth = brushWidth;
-            break;
-        }
-      }
-    }
+    setupDrawingContext(
+      context.current,
+      brushType,
+      brushWidth,
+      brushColor,
+      isEraser
+    );
   };
 
   // Handle color drop
@@ -753,342 +739,94 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
 
   // Touch event handlers
   function handleCanvasTouchStart(event) {
-    event.preventDefault();
-    const touch = event.touches[0];
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    const result = handleTouchStart(
+      event,
+      context.current,
+      isSelectMode,
+      selectedImage,
+      setIsMouseDown,
+      setCurrentPosition,
+      lastPoint,
+      setupContext
+    );
 
-    if (isSelectMode) {
-      // Check if touching a resize handle
-      if (selectedImage) {
-        const handleSize = 8;
-        const handles = [
-          {
-            x: selectedImage.x - handleSize / 2,
-            y: selectedImage.y - handleSize / 2,
-            type: "nw",
-          },
-          {
-            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
-            y: selectedImage.y - handleSize / 2,
-            type: "n",
-          },
-          {
-            x: selectedImage.x + selectedImage.width - handleSize / 2,
-            y: selectedImage.y - handleSize / 2,
-            type: "ne",
-          },
-          {
-            x: selectedImage.x - handleSize / 2,
-            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
-            type: "w",
-          },
-          {
-            x: selectedImage.x + selectedImage.width - handleSize / 2,
-            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
-            type: "e",
-          },
-          {
-            x: selectedImage.x - handleSize / 2,
-            y: selectedImage.y + selectedImage.height - handleSize / 2,
-            type: "sw",
-          },
-          {
-            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
-            y: selectedImage.y + selectedImage.height - handleSize / 2,
-            type: "s",
-          },
-          {
-            x: selectedImage.x + selectedImage.width - handleSize / 2,
-            y: selectedImage.y + selectedImage.height - handleSize / 2,
-            type: "se",
-          },
-        ];
-
-        const clickedHandle = handles.find(
-          (handle) =>
-            x >= handle.x &&
-            x <= handle.x + handleSize &&
-            y >= handle.y &&
-            y <= handle.y + handleSize
+    if (result && isSelectMode) {
+      if (result.type === "resize") {
+        handleResizeStart(
+          { offsetX: result.x, offsetY: result.y },
+          result.handle
         );
-
-        if (clickedHandle) {
-          handleResizeStart({ offsetX: x, offsetY: y }, clickedHandle.type);
-          return;
-        }
+      } else if (result.type === "drag") {
+        handleImageSelect(result.x, result.y);
+        handleImageDragStart({ offsetX: result.x, offsetY: result.y });
       }
-
-      handleImageSelect(x, y);
-      handleImageDragStart({ offsetX: x, offsetY: y });
-    } else if (context.current) {
-      setIsMouseDown(true);
-      setupContext();
-      context.current.beginPath();
-      context.current.moveTo(x, y);
-      lastPoint.current = { x, y };
-      setCurrentPosition([x, y]); // Set initial position
     }
   }
 
   function handleCanvasTouchMove(event) {
-    event.preventDefault();
-    const touch = event.touches[0];
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    const result = handleTouchMove(
+      event,
+      isSelectMode,
+      isResizing,
+      selectedImage,
+      setCurrentPosition
+    );
 
-    if (isSelectMode) {
-      if (isResizing) {
-        handleResize({ offsetX: x, offsetY: y });
-      } else {
-        handleImageDrag({ offsetX: x, offsetY: y });
+    if (result && isSelectMode) {
+      if (result.type === "resize") {
+        handleResize({ offsetX: result.x, offsetY: result.y });
+      } else if (result.type === "drag") {
+        handleImageDrag({ offsetX: result.x, offsetY: result.y });
       }
       drawSelectionIndicator();
-    } else {
-      setCurrentPosition([x, y]);
     }
   }
 
   function handleCanvasTouchEnd(event) {
-    event.preventDefault();
+    const result = handleTouchEnd(
+      event,
+      isSelectMode,
+      isResizing,
+      setIsMouseDown,
+      lastPoint,
+      saveCanvasState
+    );
 
-    if (isSelectMode) {
-      if (isResizing) {
+    if (result && isSelectMode) {
+      if (result.type === "resizeEnd") {
         handleResizeEnd();
-      } else {
+      } else if (result.type === "dragEnd") {
         handleImageDragEnd();
       }
       drawSelectionIndicator();
-    } else {
-      setIsMouseDown(false);
-      lastPoint.current = null;
-      saveCanvasState();
     }
   }
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 20,
-        left: 20,
-        right: 20,
-        zIndex: 1000,
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "10px",
-        alignItems: "center",
-        backgroundColor: "white",
-        padding: "10px",
-        borderRadius: "8px",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-        maxWidth: "100%",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "10px",
-          alignItems: "center",
-          flex: "1",
-          minWidth: "200px",
-        }}
-      >
-        <button
-          onClick={handleSelectModeToggle}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: isSelectMode ? "#2196F3" : "#f5f5f5",
-            color: isSelectMode ? "white" : "black",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {isSelectMode ? "Exit Select Mode" : "Select Mode"}
-        </button>
-        <button
-          onClick={() => setIsEraser(!isEraser)}
-          disabled={isSelectMode}
-          style={{
-            padding: "8px",
-            backgroundColor: isEraser ? "#2196F3" : "#f5f5f5",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: isSelectMode ? "not-allowed" : "pointer",
-            whiteSpace: "nowrap",
-            opacity: isSelectMode ? 0.5 : 1,
-          }}
-        >
-          <img
-            src="/icons/eraser.png"
-            style={{ width: "24px", height: "24px" }}
-            alt="Eraser"
-          />
-        </button>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            backgroundColor: "white",
-            padding: "8px 16px",
-            borderRadius: "4px",
-            minWidth: "150px",
-            opacity: isSelectMode ? 0.5 : 1,
-          }}
-        >
-          <span style={{ minWidth: "40px" }}>{brushWidth}px</span>
-          <input
-            type="range"
-            min="1"
-            max="50"
-            value={brushWidth}
-            onChange={(e) => setBrushWidth(parseInt(e.target.value))}
-            style={{ width: "100px" }}
-            disabled={isSelectMode}
-          />
-        </div>
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            backgroundColor: "white",
-            padding: "8px 16px",
-            borderRadius: "4px",
-            flexWrap: "wrap",
-            opacity: isSelectMode ? 0.5 : 1,
-          }}
-        >
-          <button
-            onClick={() => handleBrushTypeChange("pencil")}
-            disabled={isSelectMode}
-            style={{
-              padding: "8px",
-              backgroundColor: brushType === "pencil" ? "#2196F3" : "#f5f5f5",
-              color: brushType === "pencil" ? "white" : "black",
-              border: "none",
-              borderRadius: "8px",
-              cursor: isSelectMode ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <img
-              src="/icons/pencil.png"
-              style={{ width: "24px", height: "24px" }}
-              alt="Pencil"
-            />
-          </button>
-          <button
-            onClick={() => handleBrushTypeChange("pen")}
-            disabled={isSelectMode}
-            style={{
-              padding: "8px",
-              backgroundColor: brushType === "pen" ? "#2196F3" : "#f5f5f5",
-              color: brushType === "pen" ? "white" : "black",
-              border: "none",
-              borderRadius: "8px",
-              cursor: isSelectMode ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <img
-              src="/icons/pen.png"
-              style={{ width: "24px", height: "24px" }}
-              alt="Pen"
-            />
-          </button>
-          <button
-            onClick={() => handleBrushTypeChange("marker")}
-            disabled={isSelectMode}
-            style={{
-              padding: "8px",
-              backgroundColor: brushType === "marker" ? "#2196F3" : "#f5f5f5",
-              color: brushType === "marker" ? "white" : "black",
-              border: "none",
-              borderRadius: "8px",
-              cursor: isSelectMode ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <img
-              src="/icons/marker.png"
-              style={{ width: "24px", height: "24px" }}
-              alt="Marker"
-            />
-          </button>
-        </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <ColorPicker
-          currentColor={brushColor}
-          onColorChange={handleColorChange}
-          onColorUsed={colorUsed}
-          disabled={isSelectMode}
-        />
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            backgroundColor: "white",
-            padding: "8px 16px",
-            borderRadius: "4px",
-          }}
-        >
-          <button
-            onClick={handleUndo}
-            disabled={!canUndo}
-            style={{
-              padding: "8px",
-              backgroundColor: "#f5f5f5",
-              border: "none",
-              borderRadius: "4px",
-              cursor: canUndo ? "pointer" : "not-allowed",
-              opacity: canUndo ? 1 : 0.15,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <img
-              src="/icons/undo.png"
-              style={{ width: "24px", height: "24px" }}
-              alt="Undo"
-            />
-          </button>
-          <button
-            onClick={handleRedo}
-            disabled={!canRedo}
-            style={{
-              padding: "8px",
-              backgroundColor: "#f5f5f5",
-              border: "none",
-              borderRadius: "4px",
-              cursor: canRedo ? "pointer" : "not-allowed",
-              opacity: canRedo ? 1 : 0.15,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <img
-              src="/icons/redo.png"
-              style={{ width: "24px", height: "24px" }}
-              alt="Redo"
-            />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return {
+    isSelectMode,
+    isEraser,
+    brushWidth,
+    brushType,
+    brushColor,
+    colorUsed,
+    canUndo,
+    canRedo,
+    showGrid,
+    handleSelectModeToggle,
+    handleEraserToggle: () => setIsEraser(!isEraser),
+    handleBrushWidthChange: (e) => setBrushWidth(parseInt(e.target.value)),
+    handleBrushTypeChange,
+    handleColorChange,
+    handleUndo,
+    handleRedo,
+    handleGridToggle: () => setShowGrid(!showGrid),
+    handleExport: () => {
+      const link = document.createElement("a");
+      link.download = "canvas.png";
+      link.href = canvasRef.current.toDataURL();
+      link.click();
+    },
+  };
 }
 
-export default CanvasEventListeners;
+export default useCanvasEventListeners;
