@@ -66,7 +66,7 @@ function Canvas() {
           onClick={() => setShowGrid(!showGrid)}
           style={{
             padding: "8px 16px",
-            backgroundColor: showGrid ? "#4CAF50" : "#f44336",
+            backgroundColor: showGrid ? "#f5f5f5" : "#2196F3",
             color: "white",
             border: "none",
             borderRadius: "4px",
@@ -75,15 +75,15 @@ function Canvas() {
         >
           {showGrid ? (
             <img
-              src="/icons/hide.png"
-              style={{ width: "24px", height: "24px" }}
-              alt="Hide"
-            />
-          ) : (
-            <img
               src="/icons/Show.png"
               style={{ width: "24px", height: "24px" }}
               alt="Show"
+            />
+          ) : (
+            <img
+              src="/icons/hide.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Hide"
             />
           )}
         </button>
@@ -91,7 +91,7 @@ function Canvas() {
           onClick={handleExport}
           style={{
             padding: "8px 16px",
-            backgroundColor: "#2196F3",
+            backgroundColor: "#f5f5f5",
             color: "white",
             border: "none",
             borderRadius: "4px",

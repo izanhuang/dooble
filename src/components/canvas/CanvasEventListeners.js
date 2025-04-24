@@ -788,11 +788,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
           onClick={() => setIsEraser(!isEraser)}
           disabled={isSelectMode}
           style={{
-            padding: "8px 16px",
-            backgroundColor: isEraser ? "#f44336" : "#2196F3",
+            padding: "8px",
+            backgroundColor: isEraser ? "#2196F3" : "#f5f5f5",
             color: "white",
             border: "none",
-            borderRadius: "4px",
+            borderRadius: "8px",
             cursor: isSelectMode ? "not-allowed" : "pointer",
             whiteSpace: "nowrap",
             opacity: isSelectMode ? 0.5 : 1,
@@ -846,7 +846,7 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               backgroundColor: brushType === "pencil" ? "#2196F3" : "#f5f5f5",
               color: brushType === "pencil" ? "white" : "black",
               border: "none",
-              borderRadius: "4px",
+              borderRadius: "8px",
               cursor: isSelectMode ? "not-allowed" : "pointer",
               whiteSpace: "nowrap",
             }}
@@ -865,7 +865,7 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               backgroundColor: brushType === "pen" ? "#2196F3" : "#f5f5f5",
               color: brushType === "pen" ? "white" : "black",
               border: "none",
-              borderRadius: "4px",
+              borderRadius: "8px",
               cursor: isSelectMode ? "not-allowed" : "pointer",
               whiteSpace: "nowrap",
             }}
@@ -884,7 +884,7 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               backgroundColor: brushType === "marker" ? "#2196F3" : "#f5f5f5",
               color: brushType === "marker" ? "white" : "black",
               border: "none",
-              borderRadius: "4px",
+              borderRadius: "8px",
               cursor: isSelectMode ? "not-allowed" : "pointer",
               whiteSpace: "nowrap",
             }}
@@ -925,11 +925,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
             disabled={!canUndo}
             style={{
               padding: "8px",
-              backgroundColor: canUndo ? "#2196F3" : "#f5f5f5",
-              color: canUndo ? "white" : "#999",
+              backgroundColor: "#f5f5f5",
               border: "none",
               borderRadius: "4px",
               cursor: canUndo ? "pointer" : "not-allowed",
+              opacity: canUndo ? 1 : 0.15,
               whiteSpace: "nowrap",
             }}
           >
@@ -944,11 +944,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
             disabled={!canRedo}
             style={{
               padding: "8px",
-              backgroundColor: canRedo ? "#2196F3" : "#f5f5f5",
-              color: canRedo ? "white" : "#999",
+              backgroundColor: "#f5f5f5",
               border: "none",
               borderRadius: "4px",
               cursor: canRedo ? "pointer" : "not-allowed",
+              opacity: canRedo ? 1 : 0.15,
               whiteSpace: "nowrap",
             }}
           >
