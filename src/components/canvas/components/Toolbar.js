@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import ColorPicker from "../ColorPicker";
 
 const Toolbar = ({
@@ -18,6 +18,12 @@ const Toolbar = ({
   onUndo,
   onRedo,
 }) => {
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  const toggleMinimize = () => {
+    setIsMinimized(!isMinimized);
+  };
+
   return (
     <div
       style={{
@@ -34,11 +40,41 @@ const Toolbar = ({
         borderRadius: "8px",
         boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
         maxWidth: "100%",
+        transition: "all 0.3s ease",
+        transform: isMinimized ? "translateX(-20%)" : "translateX(0)",
       }}
     >
       <div
         style={{
           display: "flex",
+          justifyContent: "flex-end",
+          width: "100%",
+          marginBottom: "10px",
+        }}
+      >
+        <button
+          onClick={toggleMinimize}
+          style={{
+            padding: "4px 8px",
+            backgroundColor: "#f5f5f5",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "16px",
+            fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.3s ease",
+          }}
+        >
+          {isMinimized ? "+" : "-"}
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: isMinimized ? "none" : "flex",
           flexDirection: "column",
           flexWrap: "wrap",
           gap: "10px",
@@ -60,6 +96,7 @@ const Toolbar = ({
         >
           {isSelectMode ? "Exit Select" : "Select"}
         </button>
+
         <button
           onClick={onEraserToggle}
           disabled={isSelectMode}
@@ -80,6 +117,7 @@ const Toolbar = ({
             alt="Eraser"
           />
         </button>
+
         <div
           style={{
             display: "flex",
@@ -108,6 +146,7 @@ const Toolbar = ({
             disabled={isSelectMode}
           />
         </div>
+
         <div
           style={{
             display: "flex",
@@ -178,12 +217,14 @@ const Toolbar = ({
             />
           </button>
         </div>
+
         <ColorPicker
           currentColor={brushColor}
           onColorChange={onColorChange}
           onColorUsed={colorUsed}
           disabled={isSelectMode}
         />
+
         <div
           style={{
             display: "flex",
