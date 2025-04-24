@@ -8,6 +8,35 @@ import {
   handleTouchMove,
   handleTouchEnd,
 } from "./canvasHelpers";
+import {
+  handleCanvasMouseDown,
+  handleCanvasMouseMove,
+  handleCanvasMouseUp,
+} from "./handlers/drawingHandlers";
+import {
+  handleImageSelect,
+  handleImageDragStart,
+  handleImageDrag,
+  handleImageDragEnd,
+} from "./handlers/imageHandlers";
+import {
+  handleResizeStart,
+  handleResize,
+  handleResizeEnd,
+} from "./handlers/resizeHandlers";
+import { hexToRgba, addNoise, drawSelectionIndicator } from "./handlers/utils";
+import {
+  handleBrushTypeChange,
+  handleEraserToggle,
+  handleColorChange,
+} from "./handlers/brushHandlers";
+import {
+  saveCanvasState,
+  handleUndo,
+  handleRedo,
+  handleSelectModeToggle,
+  redrawCanvas,
+} from "./handlers/canvasStateHandlers";
 
 function useCanvasEventListeners({
   showGrid: initialShowGrid,
@@ -37,69 +66,6 @@ function useCanvasEventListeners({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [originalImage, setOriginalImage] = useState(null);
 
-  // Brush size presets
-  const brushSizePresets = {
-    pencil: 4,
-    pen: 8,
-    marker: 12,
-  };
-
-  // Handle brush type change
-  const handleBrushTypeChange = (type) => {
-    setBrushType(type);
-    setBrushWidth(brushSizePresets[type]);
-    setIsEraser(false); // Deselect eraser when selecting a brush type
-  };
-
-  // Handle eraser toggle
-  const handleEraserToggle = () => {
-    setIsEraser(!isEraser);
-    if (!isEraser) {
-      setBrushType(null); // Deselect brush type when selecting eraser
-    }
-  };
-
-  // Convert hex color to RGBA
-  const hexToRgba = (hex, opacity) => {
-    let color = hex.startsWith("#") ? hex : `#${hex}`;
-
-    if (color.length === 4) {
-      color = `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
-    }
-
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
-    if (result) {
-      const r = parseInt(result[1], 16);
-      const g = parseInt(result[2], 16);
-      const b = parseInt(result[3], 16);
-      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    }
-    return color;
-  };
-
-  // Add noise to create pencil effect
-  const addNoise = (ctx, x, y, width, color) => {
-    const baseOpacity = parseFloat(color.match(/[\d.]+\)$/)?.[0] || 1);
-    const pressure = 0.3 + Math.random() * 0.7;
-
-    // Draw main line with varying width
-    const lineWidth = width * (0.3 + pressure * 0.4);
-    ctx.lineWidth = lineWidth;
-    ctx.strokeStyle = color;
-
-    // Single line with natural variation
-    ctx.beginPath();
-    ctx.moveTo(x - width / 4, y);
-    ctx.lineTo(x + width / 4, y);
-    ctx.stroke();
-  };
-
-  const handleColorChange = (color, opacity) => {
-    const newColor = hexToRgba(color, opacity);
-    setBrushColor(newColor);
-    setBrushOpacity(opacity);
-  };
-
   // Set up drawing context based on brush type
   const setupContext = () => {
     setupDrawingContext(
@@ -122,7 +88,7 @@ function useCanvasEventListeners({
 
       // Use the dragged color for flood fill
       floodFill(context.current, x, y, draggedColor);
-      saveCanvasState();
+      saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo);
     }
   };
 
@@ -165,279 +131,13 @@ function useCanvasEventListeners({
 
             // Draw the scaled image
             context.current.drawImage(img, x, y, newWidth, newHeight);
-            saveCanvasState();
+            saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo);
           };
           img.src = event.target.result;
         };
         reader.readAsDataURL(file);
       }
     }
-  };
-
-  // Handle image selection
-  const handleImageSelect = (x, y) => {
-    if (!isSelectMode) return;
-
-    // If clicking on the currently selected image, do nothing
-    if (
-      selectedImage &&
-      x >= selectedImage.x &&
-      x <= selectedImage.x + selectedImage.width &&
-      y >= selectedImage.y &&
-      y <= selectedImage.y + selectedImage.height
-    ) {
-      return;
-    }
-
-    // Check if click is on an image
-    const imageData = context.current.getImageData(x, y, 1, 1).data;
-    if (imageData[3] > 0) {
-      // If pixel is not transparent
-      // Get the image dimensions by scanning the canvas
-      let minX = x;
-      let maxX = x;
-      let minY = y;
-      let maxY = y;
-
-      // Scan horizontally
-      for (let i = x; i >= 0; i--) {
-        const pixel = context.current.getImageData(i, y, 1, 1).data;
-        if (pixel[3] === 0) break;
-        minX = i;
-      }
-      for (let i = x; i < canvasRef.current.width; i++) {
-        const pixel = context.current.getImageData(i, y, 1, 1).data;
-        if (pixel[3] === 0) break;
-        maxX = i;
-      }
-
-      // Scan vertically
-      for (let i = y; i >= 0; i--) {
-        const pixel = context.current.getImageData(x, i, 1, 1).data;
-        if (pixel[3] === 0) break;
-        minY = i;
-      }
-      for (let i = y; i < canvasRef.current.height; i++) {
-        const pixel = context.current.getImageData(x, i, 1, 1).data;
-        if (pixel[3] === 0) break;
-        maxY = i;
-      }
-
-      // Store the original image data
-      const imageData = context.current.getImageData(
-        minX,
-        minY,
-        maxX - minX + 1,
-        maxY - minY + 1
-      );
-      setOriginalImage(imageData);
-
-      // Clear any existing selection
-      setSelectedImage(null);
-
-      // Set new selection after a small delay to ensure the previous selection is cleared
-      setTimeout(() => {
-        setSelectedImage({
-          x: minX,
-          y: minY,
-          width: maxX - minX + 1,
-          height: maxY - minY + 1,
-        });
-      }, 0);
-    } else {
-      // Only deselect if clicking outside the current selection
-      if (
-        selectedImage &&
-        (x < selectedImage.x ||
-          x > selectedImage.x + selectedImage.width ||
-          y < selectedImage.y ||
-          y > selectedImage.y + selectedImage.height)
-      ) {
-        setSelectedImage(null);
-        setOriginalImage(null);
-      }
-    }
-  };
-
-  // Handle image drag start
-  const handleImageDragStart = (e) => {
-    if (!isSelectMode || !selectedImage) return;
-    setIsDraggingImage(true);
-    setDragStart({ x: e.offsetX, y: e.offsetY });
-  };
-
-  // Handle image drag
-  const handleImageDrag = (e) => {
-    if (!isSelectMode || !selectedImage || !isDraggingImage) return;
-
-    const dx = e.offsetX - dragStart.x;
-    const dy = e.offsetY - dragStart.y;
-
-    // Update image position
-    setSelectedImage((prev) => ({
-      ...prev,
-      x: prev.x + dx,
-      y: prev.y + dy,
-    }));
-
-    setDragStart({ x: e.offsetX, y: e.offsetY });
-  };
-
-  // Handle image drag end
-  const handleImageDragEnd = () => {
-    setIsDraggingImage(false);
-    saveCanvasState();
-  };
-
-  // Handle resize start
-  const handleResizeStart = (e, handle) => {
-    if (!isSelectMode || !selectedImage) return;
-    setIsResizing(true);
-    setResizeHandle(handle);
-    setDragStart({ x: e.offsetX, y: e.offsetY });
-  };
-
-  // Handle resize
-  const handleResize = (e) => {
-    if (!isResizing || !selectedImage || !resizeHandle) return;
-
-    const dx = e.offsetX - dragStart.x;
-    const dy = e.offsetY - dragStart.y;
-
-    let newX = selectedImage.x;
-    let newY = selectedImage.y;
-    let newWidth = selectedImage.width;
-    let newHeight = selectedImage.height;
-
-    switch (resizeHandle) {
-      case "nw":
-        newX += dx;
-        newY += dy;
-        newWidth -= dx;
-        newHeight -= dy;
-        break;
-      case "n":
-        newY += dy;
-        newHeight -= dy;
-        break;
-      case "ne":
-        newY += dy;
-        newWidth += dx;
-        newHeight -= dy;
-        break;
-      case "w":
-        newX += dx;
-        newWidth -= dx;
-        break;
-      case "e":
-        newWidth += dx;
-        break;
-      case "sw":
-        newX += dx;
-        newWidth -= dx;
-        newHeight += dy;
-        break;
-      case "s":
-        newHeight += dy;
-        break;
-      case "se":
-        newWidth += dx;
-        newHeight += dy;
-        break;
-    }
-
-    // Ensure minimum size
-    if (newWidth < 10) newWidth = 10;
-    if (newHeight < 10) newHeight = 10;
-
-    setSelectedImage({
-      x: newX,
-      y: newY,
-      width: newWidth,
-      height: newHeight,
-    });
-
-    setDragStart({ x: e.offsetX, y: e.offsetY });
-  };
-
-  // Handle resize end
-  const handleResizeEnd = () => {
-    if (!isResizing) return;
-    setIsResizing(false);
-    setResizeHandle(null);
-    saveCanvasState();
-  };
-
-  // Draw selection indicator with resize handles
-  const drawSelectionIndicator = () => {
-    if (!selectedImage || !context.current) return;
-
-    // Save the current canvas state
-    context.current.save();
-
-    // Draw selection rectangle
-    context.current.strokeStyle = "#2196F3";
-    context.current.lineWidth = 2;
-    context.current.setLineDash([5, 5]);
-    context.current.strokeRect(
-      selectedImage.x - 2,
-      selectedImage.y - 2,
-      selectedImage.width + 4,
-      selectedImage.height + 4
-    );
-
-    // Draw resize handles
-    const handleSize = 8;
-    const handles = [
-      {
-        x: selectedImage.x - handleSize / 2,
-        y: selectedImage.y - handleSize / 2,
-        type: "nw",
-      },
-      {
-        x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
-        y: selectedImage.y - handleSize / 2,
-        type: "n",
-      },
-      {
-        x: selectedImage.x + selectedImage.width - handleSize / 2,
-        y: selectedImage.y - handleSize / 2,
-        type: "ne",
-      },
-      {
-        x: selectedImage.x - handleSize / 2,
-        y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
-        type: "w",
-      },
-      {
-        x: selectedImage.x + selectedImage.width - handleSize / 2,
-        y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
-        type: "e",
-      },
-      {
-        x: selectedImage.x - handleSize / 2,
-        y: selectedImage.y + selectedImage.height - handleSize / 2,
-        type: "sw",
-      },
-      {
-        x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
-        y: selectedImage.y + selectedImage.height - handleSize / 2,
-        type: "s",
-      },
-      {
-        x: selectedImage.x + selectedImage.width - handleSize / 2,
-        y: selectedImage.y + selectedImage.height - handleSize / 2,
-        type: "se",
-      },
-    ];
-
-    handles.forEach((handle) => {
-      context.current.fillStyle = "#2196F3";
-      context.current.fillRect(handle.x, handle.y, handleSize, handleSize);
-    });
-
-    // Restore the canvas state
-    context.current.restore();
   };
 
   // Set up canvas and event listeners
@@ -479,17 +179,218 @@ function useCanvasEventListeners({
       window.addEventListener("resize", updateCanvasSize);
 
       const canvas = canvasRef.current;
-      canvas.addEventListener("mousedown", handleCanvasMouseDown);
-      canvas.addEventListener("mousemove", handleCanvasMouseMove);
-      canvas.addEventListener("mouseup", handleCanvasMouseUp);
+      canvas.addEventListener("mousedown", (e) => {
+        const result = handleCanvasMouseDown(
+          e,
+          context.current,
+          isSelectMode,
+          selectedImage,
+          setIsMouseDown,
+          setCurrentPosition,
+          lastPoint,
+          setupContext
+        );
+
+        if (result && isSelectMode) {
+          if (result.type === "resize") {
+            handleResizeStart(
+              { offsetX: result.x, offsetY: result.y },
+              result.handle,
+              isSelectMode,
+              selectedImage,
+              setIsResizing,
+              setResizeHandle,
+              setDragStart
+            );
+          } else if (result.type === "drag") {
+            handleImageSelect(
+              result.x,
+              result.y,
+              context.current,
+              isSelectMode,
+              selectedImage,
+              setSelectedImage,
+              setOriginalImage
+            );
+            handleImageDragStart(
+              { offsetX: result.x, offsetY: result.y },
+              isSelectMode,
+              selectedImage,
+              setIsDraggingImage,
+              setDragStart
+            );
+          }
+        }
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        const result = handleCanvasMouseMove(
+          e,
+          isSelectMode,
+          isResizing,
+          selectedImage,
+          setCurrentPosition
+        );
+
+        if (result && isSelectMode) {
+          if (result.type === "resize") {
+            handleResize(
+              { offsetX: result.x, offsetY: result.y },
+              isResizing,
+              selectedImage,
+              resizeHandle,
+              setSelectedImage,
+              setDragStart,
+              dragStart
+            );
+          } else if (result.type === "drag") {
+            handleImageDrag(
+              { offsetX: result.x, offsetY: result.y },
+              isSelectMode,
+              selectedImage,
+              isDraggingImage,
+              setSelectedImage,
+              setDragStart,
+              dragStart
+            );
+          }
+          drawSelectionIndicator(context.current, selectedImage);
+        }
+      });
+
+      canvas.addEventListener("mouseup", (e) => {
+        const result = handleCanvasMouseUp(
+          e,
+          isSelectMode,
+          isResizing,
+          setIsMouseDown,
+          lastPoint,
+          () =>
+            saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo)
+        );
+
+        if (result && isSelectMode) {
+          if (result.type === "resizeEnd") {
+            handleResizeEnd(isResizing, setIsResizing, setResizeHandle, () =>
+              saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo)
+            );
+          } else if (result.type === "dragEnd") {
+            handleImageDragEnd(setIsDraggingImage, () =>
+              saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo)
+            );
+          }
+          drawSelectionIndicator(context.current, selectedImage);
+        }
+      });
+
       canvas.addEventListener("drop", handleDrop);
       canvas.addEventListener("dragover", handleDragOver);
       document.addEventListener("paste", handlePaste);
 
       // Add touch event listeners
-      canvas.addEventListener("touchstart", handleCanvasTouchStart);
-      canvas.addEventListener("touchmove", handleCanvasTouchMove);
-      canvas.addEventListener("touchend", handleCanvasTouchEnd);
+      canvas.addEventListener("touchstart", (e) => {
+        const result = handleTouchStart(
+          e,
+          context.current,
+          isSelectMode,
+          selectedImage,
+          setIsMouseDown,
+          setCurrentPosition,
+          lastPoint,
+          setupContext
+        );
+
+        if (result && isSelectMode) {
+          if (result.type === "resize") {
+            handleResizeStart(
+              { offsetX: result.x, offsetY: result.y },
+              result.handle,
+              isSelectMode,
+              selectedImage,
+              setIsResizing,
+              setResizeHandle,
+              setDragStart
+            );
+          } else if (result.type === "drag") {
+            handleImageSelect(
+              result.x,
+              result.y,
+              context.current,
+              isSelectMode,
+              selectedImage,
+              setSelectedImage,
+              setOriginalImage
+            );
+            handleImageDragStart(
+              { offsetX: result.x, offsetY: result.y },
+              isSelectMode,
+              selectedImage,
+              setIsDraggingImage,
+              setDragStart
+            );
+          }
+        }
+      });
+
+      canvas.addEventListener("touchmove", (e) => {
+        const result = handleTouchMove(
+          e,
+          isSelectMode,
+          isResizing,
+          selectedImage,
+          setCurrentPosition
+        );
+
+        if (result && isSelectMode) {
+          if (result.type === "resize") {
+            handleResize(
+              { offsetX: result.x, offsetY: result.y },
+              isResizing,
+              selectedImage,
+              resizeHandle,
+              setSelectedImage,
+              setDragStart,
+              dragStart
+            );
+          } else if (result.type === "drag") {
+            handleImageDrag(
+              { offsetX: result.x, offsetY: result.y },
+              isSelectMode,
+              selectedImage,
+              isDraggingImage,
+              setSelectedImage,
+              setDragStart,
+              dragStart
+            );
+          }
+          drawSelectionIndicator(context.current, selectedImage);
+        }
+      });
+
+      canvas.addEventListener("touchend", (e) => {
+        const result = handleTouchEnd(
+          e,
+          isSelectMode,
+          isResizing,
+          setIsMouseDown,
+          lastPoint,
+          () =>
+            saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo)
+        );
+
+        if (result && isSelectMode) {
+          if (result.type === "resizeEnd") {
+            handleResizeEnd(isResizing, setIsResizing, setResizeHandle, () =>
+              saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo)
+            );
+          } else if (result.type === "dragEnd") {
+            handleImageDragEnd(setIsDraggingImage, () =>
+              saveCanvasState(canvasRef, canvasHistory, setCanUndo, setCanRedo)
+            );
+          }
+          drawSelectionIndicator(context.current, selectedImage);
+        }
+      });
 
       return () => {
         window.removeEventListener("resize", updateCanvasSize);
@@ -501,9 +402,9 @@ function useCanvasEventListeners({
         document.removeEventListener("paste", handlePaste);
 
         // Remove touch event listeners
-        canvas.removeEventListener("touchstart", handleCanvasTouchStart);
-        canvas.removeEventListener("touchmove", handleCanvasTouchMove);
-        canvas.removeEventListener("touchend", handleCanvasTouchEnd);
+        canvas.removeEventListener("touchstart", handleTouchStart);
+        canvas.removeEventListener("touchmove", handleTouchMove);
+        canvas.removeEventListener("touchend", handleTouchEnd);
       };
     }
   }, [canvasRef, gridCanvasRef, isEraser, brushWidth, brushColor, brushType]);
@@ -565,251 +466,9 @@ function useCanvasEventListeners({
   useEffect(() => {
     if (context.current) {
       // Only redraw the selection indicator, not the entire canvas
-      drawSelectionIndicator();
+      drawSelectionIndicator(context.current, selectedImage);
     }
   }, [selectedImage, isSelectMode]);
-
-  // Update mouse event handlers
-  function handleCanvasMouseDown(event) {
-    event.preventDefault();
-    if (isSelectMode) {
-      const x = event.offsetX;
-      const y = event.offsetY;
-
-      // Check if clicking on a resize handle
-      if (selectedImage) {
-        const handleSize = 8;
-        const handles = [
-          {
-            x: selectedImage.x - handleSize / 2,
-            y: selectedImage.y - handleSize / 2,
-            type: "nw",
-          },
-          {
-            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
-            y: selectedImage.y - handleSize / 2,
-            type: "n",
-          },
-          {
-            x: selectedImage.x + selectedImage.width - handleSize / 2,
-            y: selectedImage.y - handleSize / 2,
-            type: "ne",
-          },
-          {
-            x: selectedImage.x - handleSize / 2,
-            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
-            type: "w",
-          },
-          {
-            x: selectedImage.x + selectedImage.width - handleSize / 2,
-            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
-            type: "e",
-          },
-          {
-            x: selectedImage.x - handleSize / 2,
-            y: selectedImage.y + selectedImage.height - handleSize / 2,
-            type: "sw",
-          },
-          {
-            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
-            y: selectedImage.y + selectedImage.height - handleSize / 2,
-            type: "s",
-          },
-          {
-            x: selectedImage.x + selectedImage.width - handleSize / 2,
-            y: selectedImage.y + selectedImage.height - handleSize / 2,
-            type: "se",
-          },
-        ];
-
-        const clickedHandle = handles.find(
-          (handle) =>
-            x >= handle.x &&
-            x <= handle.x + handleSize &&
-            y >= handle.y &&
-            y <= handle.y + handleSize
-        );
-
-        if (clickedHandle) {
-          handleResizeStart(event, clickedHandle.type);
-          return;
-        }
-      }
-
-      handleImageSelect(x, y);
-      handleImageDragStart(event);
-    } else if (context.current) {
-      setIsMouseDown(true);
-      setupContext();
-      context.current.beginPath();
-      context.current.moveTo(event.offsetX, event.offsetY);
-      lastPoint.current = { x: event.offsetX, y: event.offsetY };
-    }
-  }
-
-  function handleCanvasMouseMove(event) {
-    event.preventDefault();
-    if (isSelectMode) {
-      if (isResizing) {
-        handleResize(event);
-      } else {
-        handleImageDrag(event);
-      }
-      drawSelectionIndicator();
-    } else {
-      setCurrentPosition([event.offsetX, event.offsetY]);
-    }
-  }
-
-  function handleCanvasMouseUp(event) {
-    event.preventDefault();
-    if (isSelectMode) {
-      if (isResizing) {
-        handleResizeEnd();
-      } else {
-        handleImageDragEnd();
-      }
-      drawSelectionIndicator();
-    } else {
-      setIsMouseDown(false);
-      lastPoint.current = null;
-      saveCanvasState();
-    }
-  }
-
-  // Save canvas state
-  const saveCanvasState = () => {
-    if (canvasRef.current) {
-      canvasHistory.current.saveState(canvasRef.current);
-      setCanUndo(canvasHistory.current.canUndo());
-      setCanRedo(canvasHistory.current.canRedo());
-    }
-  };
-
-  // Handle undo
-  const handleUndo = () => {
-    if (canvasRef.current && canvasHistory.current.undo(canvasRef.current)) {
-      setCanUndo(canvasHistory.current.canUndo());
-      setCanRedo(canvasHistory.current.canRedo());
-    }
-  };
-
-  // Handle redo
-  const handleRedo = () => {
-    if (canvasRef.current && canvasHistory.current.redo(canvasRef.current)) {
-      setCanUndo(canvasHistory.current.canUndo());
-      setCanRedo(canvasHistory.current.canRedo());
-    }
-  };
-
-  // Handle select mode toggle
-  const handleSelectModeToggle = () => {
-    // Store current canvas content
-    const currentContent = canvasRef.current.toDataURL();
-
-    // Toggle select mode
-    setIsSelectMode(!isSelectMode);
-
-    // Restore canvas content after mode change
-    const img = new Image();
-    img.onload = () => {
-      context.current.drawImage(img, 0, 0);
-    };
-    img.src = currentContent;
-
-    // Reset other modes when entering select mode
-    if (!isSelectMode) {
-      setIsEraser(false);
-    }
-  };
-
-  // Redraw the canvas content
-  const redrawCanvas = () => {
-    if (!context.current) return;
-
-    // Store current content
-    const currentContent = canvasRef.current.toDataURL();
-
-    // Clear the canvas
-    context.current.clearRect(
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height
-    );
-
-    // Restore content
-    const img = new Image();
-    img.onload = () => {
-      context.current.drawImage(img, 0, 0);
-    };
-    img.src = currentContent;
-  };
-
-  // Touch event handlers
-  function handleCanvasTouchStart(event) {
-    const result = handleTouchStart(
-      event,
-      context.current,
-      isSelectMode,
-      selectedImage,
-      setIsMouseDown,
-      setCurrentPosition,
-      lastPoint,
-      setupContext
-    );
-
-    if (result && isSelectMode) {
-      if (result.type === "resize") {
-        handleResizeStart(
-          { offsetX: result.x, offsetY: result.y },
-          result.handle
-        );
-      } else if (result.type === "drag") {
-        handleImageSelect(result.x, result.y);
-        handleImageDragStart({ offsetX: result.x, offsetY: result.y });
-      }
-    }
-  }
-
-  function handleCanvasTouchMove(event) {
-    const result = handleTouchMove(
-      event,
-      isSelectMode,
-      isResizing,
-      selectedImage,
-      setCurrentPosition
-    );
-
-    if (result && isSelectMode) {
-      if (result.type === "resize") {
-        handleResize({ offsetX: result.x, offsetY: result.y });
-      } else if (result.type === "drag") {
-        handleImageDrag({ offsetX: result.x, offsetY: result.y });
-      }
-      drawSelectionIndicator();
-    }
-  }
-
-  function handleCanvasTouchEnd(event) {
-    const result = handleTouchEnd(
-      event,
-      isSelectMode,
-      isResizing,
-      setIsMouseDown,
-      lastPoint,
-      saveCanvasState
-    );
-
-    if (result && isSelectMode) {
-      if (result.type === "resizeEnd") {
-        handleResizeEnd();
-      } else if (result.type === "dragEnd") {
-        handleImageDragEnd();
-      }
-      drawSelectionIndicator();
-    }
-  }
 
   return {
     isSelectMode,
@@ -821,13 +480,25 @@ function useCanvasEventListeners({
     canUndo,
     canRedo,
     showGrid,
-    handleSelectModeToggle,
-    handleEraserToggle,
+    handleSelectModeToggle: () =>
+      handleSelectModeToggle(
+        canvasRef,
+        context,
+        isSelectMode,
+        setIsSelectMode,
+        setIsEraser
+      ),
+    handleEraserToggle: () =>
+      handleEraserToggle(isEraser, setIsEraser, setBrushType),
     handleBrushWidthChange: (e) => setBrushWidth(parseInt(e.target.value)),
-    handleBrushTypeChange,
-    handleColorChange,
-    handleUndo,
-    handleRedo,
+    handleBrushTypeChange: (type) =>
+      handleBrushTypeChange(type, setBrushType, setBrushWidth, setIsEraser),
+    handleColorChange: (color, opacity) =>
+      handleColorChange(color, opacity, setBrushColor, setBrushOpacity),
+    handleUndo: () =>
+      handleUndo(canvasRef, canvasHistory, setCanUndo, setCanRedo),
+    handleRedo: () =>
+      handleRedo(canvasRef, canvasHistory, setCanUndo, setCanRedo),
     handleGridToggle: () => setShowGrid(!showGrid),
     handleExport: () => {
       const link = document.createElement("a");
