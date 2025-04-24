@@ -22,12 +22,11 @@ const Toolbar = ({
     <div
       style={{
         position: "fixed",
-        top: 20,
-        left: 20,
-        right: 20,
+        top: "20px",
+        left: "20px",
         zIndex: 1000,
         display: "flex",
-        flexWrap: "wrap",
+        flexDirection: "column",
         gap: "10px",
         alignItems: "center",
         backgroundColor: "white",
@@ -40,11 +39,11 @@ const Toolbar = ({
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           flexWrap: "wrap",
           gap: "10px",
           alignItems: "center",
           flex: "1",
-          minWidth: "200px",
         }}
       >
         <button
@@ -59,7 +58,7 @@ const Toolbar = ({
             whiteSpace: "nowrap",
           }}
         >
-          {isSelectMode ? "Exit Select Mode" : "Select Mode"}
+          {isSelectMode ? "Exit Select" : "Select"}
         </button>
         <button
           onClick={onEraserToggle}
@@ -84,29 +83,35 @@ const Toolbar = ({
         <div
           style={{
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             gap: "10px",
             backgroundColor: "white",
             padding: "8px 16px",
             borderRadius: "4px",
-            minWidth: "150px",
             opacity: isSelectMode ? 0.5 : 1,
           }}
         >
-          <span style={{ minWidth: "40px" }}>{brushWidth}px</span>
+          <span>{brushWidth}px</span>
           <input
             type="range"
             min="1"
             max="50"
             value={brushWidth}
             onChange={onBrushWidthChange}
-            style={{ width: "100px" }}
+            style={{
+              writingMode: "vertical-lr",
+              direction: "rtl",
+              appearance: "slider-vertical",
+              verticalAlign: "bottom",
+            }}
             disabled={isSelectMode}
           />
         </div>
         <div
           style={{
             display: "flex",
+            flexDirection: "column",
             gap: "8px",
             backgroundColor: "white",
             padding: "8px 16px",
@@ -173,15 +178,6 @@ const Toolbar = ({
             />
           </button>
         </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
         <ColorPicker
           currentColor={brushColor}
           onColorChange={onColorChange}
@@ -191,6 +187,7 @@ const Toolbar = ({
         <div
           style={{
             display: "flex",
+            flexDirection: "column",
             gap: "8px",
             backgroundColor: "white",
             padding: "8px 16px",

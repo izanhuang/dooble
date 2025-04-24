@@ -2,6 +2,7 @@ import React from "react";
 import ColorPicker from "./ColorPicker";
 import Toolbar from "./Toolbar";
 import GridControls from "./GridControls";
+import DailyPrompt from "./DailyPrompt";
 
 const CanvasControls = ({
   isSelectMode,
@@ -24,7 +25,8 @@ const CanvasControls = ({
   onExport,
 }) => {
   return (
-    <>
+    <div className="flex flex-col gap-4">
+      <DailyPrompt />
       <Toolbar
         isSelectMode={isSelectMode}
         isEraser={isEraser}
@@ -47,7 +49,7 @@ const CanvasControls = ({
         onGridToggle={onGridToggle}
         onExport={onExport}
       />
-    </>
+    </div>
   );
 };
 

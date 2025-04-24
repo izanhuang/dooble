@@ -183,7 +183,7 @@ function ColorPicker({ currentColor, onColorChange, onColorUsed }) {
       <button
         onClick={() => setShowPicker(!showPicker)}
         style={{
-          padding: "8px 16px",
+          padding: "8px",
           backgroundColor: "white",
           color: "black",
           border: "none",
