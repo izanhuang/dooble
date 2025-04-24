@@ -22,7 +22,10 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [originalImage, setOriginalImage] = useState(null);
 
   // Brush size presets
   const brushSizePresets = {
@@ -225,6 +228,15 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
         maxY = i;
       }
 
+      // Store the original image data
+      const imageData = context.current.getImageData(
+        minX,
+        minY,
+        maxX - minX + 1,
+        maxY - minY + 1
+      );
+      setOriginalImage(imageData);
+
       // Clear any existing selection
       setSelectedImage(null);
 
@@ -247,6 +259,7 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
           y > selectedImage.y + selectedImage.height)
       ) {
         setSelectedImage(null);
+        setOriginalImage(null);
       }
     }
   };
@@ -281,7 +294,86 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     saveCanvasState();
   };
 
-  // Draw selection indicator
+  // Handle resize start
+  const handleResizeStart = (e, handle) => {
+    if (!isSelectMode || !selectedImage) return;
+    setIsResizing(true);
+    setResizeHandle(handle);
+    setDragStart({ x: e.offsetX, y: e.offsetY });
+  };
+
+  // Handle resize
+  const handleResize = (e) => {
+    if (!isResizing || !selectedImage || !resizeHandle) return;
+
+    const dx = e.offsetX - dragStart.x;
+    const dy = e.offsetY - dragStart.y;
+
+    let newX = selectedImage.x;
+    let newY = selectedImage.y;
+    let newWidth = selectedImage.width;
+    let newHeight = selectedImage.height;
+
+    switch (resizeHandle) {
+      case "nw":
+        newX += dx;
+        newY += dy;
+        newWidth -= dx;
+        newHeight -= dy;
+        break;
+      case "n":
+        newY += dy;
+        newHeight -= dy;
+        break;
+      case "ne":
+        newY += dy;
+        newWidth += dx;
+        newHeight -= dy;
+        break;
+      case "w":
+        newX += dx;
+        newWidth -= dx;
+        break;
+      case "e":
+        newWidth += dx;
+        break;
+      case "sw":
+        newX += dx;
+        newWidth -= dx;
+        newHeight += dy;
+        break;
+      case "s":
+        newHeight += dy;
+        break;
+      case "se":
+        newWidth += dx;
+        newHeight += dy;
+        break;
+    }
+
+    // Ensure minimum size
+    if (newWidth < 10) newWidth = 10;
+    if (newHeight < 10) newHeight = 10;
+
+    setSelectedImage({
+      x: newX,
+      y: newY,
+      width: newWidth,
+      height: newHeight,
+    });
+
+    setDragStart({ x: e.offsetX, y: e.offsetY });
+  };
+
+  // Handle resize end
+  const handleResizeEnd = () => {
+    if (!isResizing) return;
+    setIsResizing(false);
+    setResizeHandle(null);
+    saveCanvasState();
+  };
+
+  // Draw selection indicator with resize handles
   const drawSelectionIndicator = () => {
     if (!selectedImage || !context.current) return;
 
@@ -298,6 +390,56 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
       selectedImage.width + 4,
       selectedImage.height + 4
     );
+
+    // Draw resize handles
+    const handleSize = 8;
+    const handles = [
+      {
+        x: selectedImage.x - handleSize / 2,
+        y: selectedImage.y - handleSize / 2,
+        type: "nw",
+      },
+      {
+        x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
+        y: selectedImage.y - handleSize / 2,
+        type: "n",
+      },
+      {
+        x: selectedImage.x + selectedImage.width - handleSize / 2,
+        y: selectedImage.y - handleSize / 2,
+        type: "ne",
+      },
+      {
+        x: selectedImage.x - handleSize / 2,
+        y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
+        type: "w",
+      },
+      {
+        x: selectedImage.x + selectedImage.width - handleSize / 2,
+        y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
+        type: "e",
+      },
+      {
+        x: selectedImage.x - handleSize / 2,
+        y: selectedImage.y + selectedImage.height - handleSize / 2,
+        type: "sw",
+      },
+      {
+        x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
+        y: selectedImage.y + selectedImage.height - handleSize / 2,
+        type: "s",
+      },
+      {
+        x: selectedImage.x + selectedImage.width - handleSize / 2,
+        y: selectedImage.y + selectedImage.height - handleSize / 2,
+        type: "se",
+      },
+    ];
+
+    handles.forEach((handle) => {
+      context.current.fillStyle = "#2196F3";
+      context.current.fillRect(handle.x, handle.y, handleSize, handleSize);
+    });
 
     // Restore the canvas state
     context.current.restore();
@@ -422,10 +564,74 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
     }
   }, [selectedImage, isSelectMode]);
 
+  // Update mouse event handlers
   function handleCanvasMouseDown(event) {
     event.preventDefault();
     if (isSelectMode) {
-      handleImageSelect(event.offsetX, event.offsetY);
+      const x = event.offsetX;
+      const y = event.offsetY;
+
+      // Check if clicking on a resize handle
+      if (selectedImage) {
+        const handleSize = 8;
+        const handles = [
+          {
+            x: selectedImage.x - handleSize / 2,
+            y: selectedImage.y - handleSize / 2,
+            type: "nw",
+          },
+          {
+            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
+            y: selectedImage.y - handleSize / 2,
+            type: "n",
+          },
+          {
+            x: selectedImage.x + selectedImage.width - handleSize / 2,
+            y: selectedImage.y - handleSize / 2,
+            type: "ne",
+          },
+          {
+            x: selectedImage.x - handleSize / 2,
+            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
+            type: "w",
+          },
+          {
+            x: selectedImage.x + selectedImage.width - handleSize / 2,
+            y: selectedImage.y + selectedImage.height / 2 - handleSize / 2,
+            type: "e",
+          },
+          {
+            x: selectedImage.x - handleSize / 2,
+            y: selectedImage.y + selectedImage.height - handleSize / 2,
+            type: "sw",
+          },
+          {
+            x: selectedImage.x + selectedImage.width / 2 - handleSize / 2,
+            y: selectedImage.y + selectedImage.height - handleSize / 2,
+            type: "s",
+          },
+          {
+            x: selectedImage.x + selectedImage.width - handleSize / 2,
+            y: selectedImage.y + selectedImage.height - handleSize / 2,
+            type: "se",
+          },
+        ];
+
+        const clickedHandle = handles.find(
+          (handle) =>
+            x >= handle.x &&
+            x <= handle.x + handleSize &&
+            y >= handle.y &&
+            y <= handle.y + handleSize
+        );
+
+        if (clickedHandle) {
+          handleResizeStart(event, clickedHandle.type);
+          return;
+        }
+      }
+
+      handleImageSelect(x, y);
       handleImageDragStart(event);
     } else if (context.current) {
       setIsMouseDown(true);
@@ -439,8 +645,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   function handleCanvasMouseMove(event) {
     event.preventDefault();
     if (isSelectMode) {
-      handleImageDrag(event);
-      // Redraw only the selection indicator during drag
+      if (isResizing) {
+        handleResize(event);
+      } else {
+        handleImageDrag(event);
+      }
       drawSelectionIndicator();
     } else {
       setCurrentPosition([event.offsetX, event.offsetY]);
@@ -450,8 +659,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
   function handleCanvasMouseUp(event) {
     event.preventDefault();
     if (isSelectMode) {
-      handleImageDragEnd();
-      // Final redraw of selection indicator
+      if (isResizing) {
+        handleResizeEnd();
+      } else {
+        handleImageDragEnd();
+      }
       drawSelectionIndicator();
     } else {
       setIsMouseDown(false);
@@ -586,7 +798,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
             opacity: isSelectMode ? 0.5 : 1,
           }}
         >
-          {isEraser ? "Switch to Pen" : "Switch to Eraser"}
+          <img
+            src="/icons/eraser.png"
+            style={{ width: "24px", height: "24px" }}
+            alt="Eraser"
+          />
         </button>
         <div
           style={{
@@ -635,7 +851,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               whiteSpace: "nowrap",
             }}
           >
-            Pencil
+            <img
+              src="/icons/pencil.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Pencil"
+            />
           </button>
           <button
             onClick={() => handleBrushTypeChange("pen")}
@@ -650,7 +870,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               whiteSpace: "nowrap",
             }}
           >
-            Pen
+            <img
+              src="/icons/pen.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Pen"
+            />
           </button>
           <button
             onClick={() => handleBrushTypeChange("marker")}
@@ -665,7 +889,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               whiteSpace: "nowrap",
             }}
           >
-            Marker
+            <img
+              src="/icons/marker.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Marker"
+            />
           </button>
         </div>
       </div>
@@ -705,7 +933,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               whiteSpace: "nowrap",
             }}
           >
-            Undo
+            <img
+              src="/icons/undo.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Undo"
+            />
           </button>
           <button
             onClick={handleRedo}
@@ -720,7 +952,11 @@ function CanvasEventListeners({ showGrid, canvasRef, gridCanvasRef }) {
               whiteSpace: "nowrap",
             }}
           >
-            Redo
+            <img
+              src="/icons/redo.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Redo"
+            />
           </button>
         </div>
       </div>

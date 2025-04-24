@@ -73,7 +73,19 @@ function Canvas() {
             cursor: "pointer",
           }}
         >
-          {showGrid ? "Hide Grid" : "Show Grid"}
+          {showGrid ? (
+            <img
+              src="/icons/hide.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Hide"
+            />
+          ) : (
+            <img
+              src="/icons/Show.png"
+              style={{ width: "24px", height: "24px" }}
+              alt="Show"
+            />
+          )}
         </button>
         <button
           onClick={handleExport}
@@ -86,7 +98,11 @@ function Canvas() {
             cursor: "pointer",
           }}
         >
-          Export Drawing
+          <img
+            src="/icons/export.png"
+            style={{ width: "24px", height: "24px" }}
+            alt="Export"
+          />
         </button>
       </div>
       <canvas
