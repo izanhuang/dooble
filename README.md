@@ -1,70 +1,84 @@
-# Getting Started with Create React App
+<p align="center">
+  <img src="https://github.com/izanhuang/dooble/blob/master/public/logo_full.png?raw=true" alt="Dooble Logo" width="400"/>
+</p>
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# ✏️ Dooble
 
-## Available Scripts
+Dooble is a fun and simple drawing web app that gives you a **daily drawing prompt** and lets you sketch directly on your **computer** or **phone**.  
+Whether you're an artist or just doodling for fun, Dooble helps you get creative every day.
 
-In the project directory, you can run:
+## 🌟 Features
 
-### `npm start`
+- 🎨 Daily drawing prompt 
+- 📱 Mobile and desktop support  
+- 💾 Save/download your creations  
+- 👯‍♀️ Share your Doobles with friends (coming soon!)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 🖼️ Try It Out
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+👉 [Live Demo](https://izanhuang.github.io/dooble)
 
-### `npm test`
+## 📦 Tech Stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Frontend:** HTML, CSS, JavaScript  
+- **Canvas Drawing:** HTML5 Canvas API
 
-### `npm run build`
+## 📂 Project Structure
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```
+dooble/
+├── public/
+│   ├── ...
+├── src/
+│   ├── components/
+│   │   ├── ...
+│   ├── helpers/
+│   │   ├── ...
+│   ├── pages/
+│   │   ├── ...
+├── README.md
+└── package.json
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🧑‍💻 Getting Started
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Clone the repository:
 
-### `npm run eject`
+```bash
+git clone https://github.com/izanhuang/dooble.git
+cd dooble
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Run it locally:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+npx serve .
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Or simply open `index.html` in your browser.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 📌 Roadmap
 
-## Learn More
+- [x] Drawing canvas  
+- [x] Daily prompt generator  
+- [x] Save/download artwork
+- [ ] Login system
+- [ ] User gallery + prompt history
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🤝 Contributing
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Got ideas or want to help improve Dooble?  
+We welcome all contributions!  
+Feel free to open an [Issue](https://github.com/izanhuang/dooble/issues) or submit a Pull Request.
 
-### Code Splitting
+## 📄 License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Released under the [MIT License](LICENSE).
 
-### Analyzing the Bundle Size
+<p align="center">
+  <img src="https://github.com/izanhuang/dooble/blob/master/public/logo.png?raw=true" alt="Dooble Icon" width="60"/>
+</p>
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+<p align="center">
+  Made with ✨ (and AI) by <a href="https://github.com/izanhuang">@izanhuang</a>
+</p>
