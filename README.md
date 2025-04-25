@@ -22,6 +22,7 @@ Whether you're an artist or just doodling for fun, Dooble helps you get creative
 
 - **Frontend:** HTML, CSS, JavaScript  
 - **Canvas Drawing:** HTML5 Canvas API
+- **Deployment:** Vercel
 
 ## 📂 Project Structure
 
@@ -52,10 +53,9 @@ cd dooble
 Run it locally:
 
 ```bash
-npx serve .
+npm i
+npm run start
 ```
-
-Or simply open `index.html` in your browser.
 
 ## 📌 Roadmap
 
