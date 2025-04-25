@@ -16,7 +16,7 @@ Whether you're an artist or just doodling for fun, Dooble helps you get creative
 
 ## 🖼️ Try It Out
 
-👉 [Live Demo](https://izanhuang.github.io/dooble)
+👉 [Live Demo](https://dooble.vercel.app/)
 
 ## 📦 Tech Stack
 
